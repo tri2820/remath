@@ -224,7 +224,7 @@ describe("Rewriting Engine", () => {
 
         // (A -> B) -> ((B -> z) -> (A -> z))
         // Also return below because LHS is fully bound
-        // (y -> z) -> (A -> z)
+        // (B -> z) -> (A -> z)
         expect(res.data?.new_facts.length).toEqual(2);
         expect(res.data?.new_facts[0]).toEqual(make_rule(make_rule(pA, pB), make_rule(make_rule(pB, z_0), make_rule(pA, z_0))));
         expect(res.data?.new_facts[1]).toEqual(make_rule(make_rule(pB, z_0), make_rule(pA, z_0)));
@@ -241,7 +241,7 @@ describe("Rewriting Engine", () => {
         }
 
         const res2 = w.findAndApply(rest, [
-            { template: make_rule(y_0, z_0), fact: make_rule(pB, pC) }
+            { template: make_rule(pB, z_0), fact: make_rule(pB, pC) }
         ])
 
         console.log('res2', JSON.stringify(res2, null, 2));
@@ -250,4 +250,50 @@ describe("Rewriting Engine", () => {
         expect(res2.data?.new_facts.length).toEqual(1);
         expect(res2.data?.new_facts[0]).toEqual(make_rule(pA, pC));
     });
+
+    it("Try a pattern that does not exist in rule", () => {
+        const a = atom("A");
+        expect(a).toEqual({ type: "atom", symbol: "A" });
+
+        const b = atom("B");
+        expect(b).toEqual({ type: "atom", symbol: "B" });
+
+        const c = atom("C");
+        expect(c).toEqual({ type: "atom", symbol: "C" });
+
+        const pA = template("point", [a]);
+        const pB = template("point", [b]);
+        const pC = template("point", [c]);
+
+        const x_0 = variable("x");
+        expect(x_0).toEqual({ type: "var", symbol: "x" });
+        const y_0 = variable("y");
+        expect(y_0).toEqual({ type: "var", symbol: "y" });
+        const z_0 = variable("z");
+        expect(z_0).toEqual({ type: "var", symbol: "z" });
+
+        const w = new World();
+        // This template means: x -> (y -> z)
+        const temp = make_rule(x_0, make_rule(y_0, z_0))
+
+        // Suppose we have a fact satisfying that template
+        const fact = make_rule(pA, make_rule(pB, pC))
+        w.add(fact);
+
+        // However, we want to statisty this rule
+        // x -> y
+        const rule = make_rule(x_0, y_0)
+
+        // Try
+        const res = w.findAndApply(rule, [
+            { template: temp, fact }
+        ])
+
+
+        // Weirdly, we have B
+        console.log('res', JSON.stringify(res, null, 2));
+
+        // Should fail because the input pattern does not exist in the rule
+        expect(res.error?.code).toEqual("TEMPLATE_NOT_IN_RULE");
+    })
 })

@@ -1,7 +1,10 @@
-import { all_atoms, all_atoms_or_introductions, bind_introductions, bind_vars, match, terms_equal, type Atom, type Introduction, type Result, type Rule, type Sub, type Template, type Term } from "./rewriting";
+import { all_atoms, all_atoms_or_introductions, bind_introductions, bind_vars, match, equal_term, type Atom, type Introduction, type Result, type Rule, type Sub, type Template, type Term, somewhere_equal } from "./rewriting";
 
 
 type PatternMatch = {
+    // This helps pin-pointing the location of where to match the fact
+    // could replace by an "id" also
+    // But I like hos this treats all locations (appearances) equally
     template: Term,
     fact: Term
 }
@@ -25,12 +28,12 @@ export class World {
     }
 
     has(pattern: Term): boolean {
-        return this.facts.some(f => terms_equal(f, pattern));
+        return this.facts.some(f => equal_term(f, pattern));
     }
 
     // STRICT FIND: Returns a Result type
     find(facts: Term[], fact: Term): Result<{ term: Term }> {
-        const found = facts.find(f => terms_equal(f, fact));
+        const found = facts.find(f => equal_term(f, fact));
         if (!found) {
             const pretty = fact.type === 'template'
                 ? `${fact.op.symbol}(${fact.terms.map(t => (t as any).symbol || '?').join(', ')})`
@@ -154,6 +157,20 @@ export class World {
         const inputMap: Sub = {};
 
         for (const p of patterns) {
+
+            // Need to make sure that p.template exists in rule
+            // Aka, tying the shape of the template to that of the rule
+            const contained = somewhere_equal(p.template, rule);
+            if (!contained) {
+                console.warn("Template not found in rule:", JSON.stringify(p.template, null, 2), JSON.stringify(rule, null, 2));
+                return {
+                    error: {
+                        code: "TEMPLATE_NOT_IN_RULE",
+                        message: `The provided template is not found in the given rule.`
+                    }
+                };
+            }
+
             const sub = match(p.template, p.fact);
             if (sub.error) {
                 return {
@@ -164,7 +181,7 @@ export class World {
             // Merge sub into inputMap
             for (const [key, val] of Object.entries(sub.data.sub)) {
                 if (key in inputMap) {
-                    if (!terms_equal(inputMap[key]!, val)) {
+                    if (!equal_term(inputMap[key]!, val)) {
                         return {
                             error: {
                                 code: "SUBSTITUTION_CONFLICT",

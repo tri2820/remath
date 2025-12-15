@@ -66,7 +66,7 @@ export const rule = (lhs: Term, ...rhs: Term[]): Rule => ({
 // ==========================================
 
 // 1. Deep Equality Check
-export function terms_equal(a: Term, b: Term): boolean {
+export function equal_term(a: Term, b: Term): boolean {
     if (a.type !== b.type) return false;
 
     if (a.type === 'atom') return a.symbol === (b as Atom).symbol;
@@ -78,10 +78,22 @@ export function terms_equal(a: Term, b: Term): boolean {
         if (a.op.symbol !== tB.op.symbol) return false;
         if (a.terms.length !== tB.terms.length) return false;
         for (let i = 0; i < a.terms.length; i++) {
-            if (!terms_equal(a.terms[i]!, tB.terms[i]!)) return false;
+            if (!equal_term(a.terms[i]!, tB.terms[i]!)) return false;
         }
         return true;
     }
+    return false;
+}
+
+export function somewhere_equal(small: Term, big: Term): boolean {
+    if (equal_term(small, big)) return true;
+
+    if (big.type === 'template') {
+        for (const t of big.terms) {
+            if (somewhere_equal(small, t)) return true;
+        }
+    }
+
     return false;
 }
 
@@ -221,7 +233,7 @@ export function match(pattern: Term, bounded: Term): Result<{ sub: Sub }> {
             // Merge substitutions
             for (const [key, val] of Object.entries(result.data.sub)) {
                 if (key in combinedSub) {
-                    if (!terms_equal(combinedSub[key]!, val)) {
+                    if (!equal_term(combinedSub[key]!, val)) {
                         return { error: { code: "SUBSTITUTION_CONFLICT" } };
                     }
                 } else {
