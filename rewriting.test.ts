@@ -1,391 +1,302 @@
-import { test, expect, describe } from "bun:test";
-import type {
-    Op,
-    Atom,
-    Variable,
-    Introduction,
-    Template,
-    Rule,
-    BoundedRule,
-    LeftTemplate,
-    RightTemplate,
-    BoundedTemplate
-} from './rewriting';
+import { describe, it, expect } from "bun:test";
 import {
+    atom,
+    variable,
+    introduction,
+    template,
+    rule,
+    terms_equal,
     is_bounded,
     bind_introductions,
     bind_vars,
     match,
-    validate_rule
-} from './rewriting';
+    validate_rule,
+    type Term,
+    type Introduction
+} from "./rewriting";
 
-describe('rewriting system', () => {
-    // Helper functions to create test data
-    const op = (symbol: string): Op => ({ type: "op", symbol });
-    const atom = (symbol: string): Atom => ({ type: "atom", symbol });
-    const variable = (symbol: string): Variable => ({ type: "var", symbol });
-    const introduction = (symbol: string, hint: string): Introduction => ({
-        type: "introduction",
-        symbol,
-        hint
-    });
+describe("Rewriting Engine", () => {
 
-    const template = <T = unknown>(opSymbol: string, terms: T[]): Template<T> => ({
-        type: 'template',
-        op: op(opSymbol),
-        terms
-    });
+    // ==========================================
+    // 1. HELPERS & STRUCTURE
+    // ==========================================
+    describe("Helpers", () => {
+        it("should create correct structures", () => {
+            const a = atom("A");
+            expect(a).toEqual({ type: "atom", symbol: "A" });
 
-    const rule = (lhs: LeftTemplate | Rule, rhs: RightTemplate | Rule): Rule => ({
-        type: 'rule',
-        lhs,
-        rhs
-    });
+            const v = variable("x");
+            expect(v).toEqual({ type: "var", symbol: "x" });
 
-    const boundedTemplate = (opSymbol: string, terms: Atom[]): BoundedTemplate => ({
-        type: 'template',
-        op: op(opSymbol),
-        terms
-    });
-
-    const boundedRule = (lhs: BoundedTemplate | BoundedRule, rhs: BoundedTemplate | BoundedRule): BoundedRule => ({
-        type: 'bounded_rule',
-        lhs,
-        rhs
-    });
-
-    describe('is_bounded', () => {
-        test('returns success for fully bounded rule', () => {
-            const lhs = boundedTemplate('point', [atom('A')]);
-            const rhs = boundedTemplate('point', [atom('B')]);
-            const testRule = rule(lhs, rhs);
-
-            const result = is_bounded(testRule);
-
-            expect(result.error).toBeUndefined();
-            expect(result.data.bounded).toEqual(boundedRule(lhs, rhs));
+            const t = template("point", [a, v]);
+            expect(t.type).toBe("template");
+            expect(t.op.symbol).toBe("point");
+            expect(t.terms).toHaveLength(2);
         });
 
-        test('returns error for rule with variables in LHS', () => {
-            const lhs = template('point', [variable('x')]);
-            const rhs = boundedTemplate('point', [atom('A')]);
-            const testRule = rule(lhs, rhs);
-
-            const result = is_bounded(testRule);
-
-            expect(result.data).toBeUndefined();
-            expect(result.error?.code).toBe('LHS_NOT_BOUNDED');
+        it("should treat rules as templates", () => {
+            const r = rule(atom("A"), atom("B"));
+            expect(r.type).toBe("template");
+            expect(r.op.symbol).toBe("rule");
+            expect(r.terms[0]).toEqual(atom("A")); // LHS
+            expect(r.terms[1]).toEqual(atom("B")); // RHS 1
         });
 
-        test('returns error for rule with variables in RHS', () => {
-            const lhs = boundedTemplate('point', [atom('A')]);
-            const rhs = template('point', [variable('x')]);
-            const testRule = rule(lhs, rhs);
+        it("should support multiple RHS terms (Implicit AND)", () => {
+            // rule(LHS, RHS1, RHS2)
+            const r = rule(atom("A"), atom("B"), atom("C"));
 
-            const result = is_bounded(testRule);
-
-            expect(result.data).toBeUndefined();
-            expect(result.error?.code).toBe('RHS_NOT_BOUNDED');
-        });
-
-        test('returns error for rule with introductions in RHS', () => {
-            const lhs = boundedTemplate('point', [atom('A')]);
-            const rhs = template('point', [introduction('z', 'O')]);
-            const testRule = rule(lhs, rhs);
-
-            const result = is_bounded(testRule);
-
-            expect(result.data).toBeUndefined();
-            expect(result.error?.code).toBe('RHS_NOT_BOUNDED');
-        });
-
-        test('handles nested rules correctly', () => {
-            const innerLhs = template('point', [atom('A')]);
-            const innerRhs = template('point', [atom('B')]);
-            const innerRule = rule(innerLhs, innerRhs);
-
-            const outerLhs = boundedTemplate('line', [atom('C')]);
-            const outerRhs = boundedTemplate('line', [atom('D')]);
-            const testRule = rule(outerLhs, outerRhs);
-
-            const result = is_bounded(testRule);
-
-            expect(result.error).toBeUndefined();
+            expect(r.op.symbol).toBe("rule");
+            expect(r.terms).toHaveLength(3);
+            expect(r.terms[0]).toEqual(atom("A")); // LHS
+            expect(r.terms[1]).toEqual(atom("B")); // RHS 1
+            expect(r.terms[2]).toEqual(atom("C")); // RHS 2
         });
     });
 
-    describe('bind_introductions', () => {
-        test('binds single introduction', () => {
-            const lhs = template('point', [atom('A')]);
-            const rhs = template('line', [atom('A'), introduction('z', 'O')]);
-            const testRule = rule(lhs, rhs);
-
-            const result = bind_introductions(testRule, (intro) => atom(`${intro.hint}1`));
-
-            expect(result.error).toBeUndefined();
-            expect(result.data.sub).toEqual({ z: 'O1' });
-
-            if (result.data.rule.rhs.type === 'template') {
-                expect(result.data.rule.rhs.terms[1]).toEqual(atom('O1'));
-            }
+    // ==========================================
+    // 2. EQUALITY
+    // ==========================================
+    describe("terms_equal", () => {
+        it("should match identical atoms", () => {
+            expect(terms_equal(atom("A"), atom("A"))).toBeTrue();
+            expect(terms_equal(atom("A"), atom("B"))).toBeFalse();
         });
 
-        test('reuses same introduction symbol', () => {
-            const lhs = template('point', [atom('A')]);
-            const rhs = template('triangle', [
-                atom('A'),
-                introduction('z', 'O'),
-                introduction('z', 'O')
+        it("should match recursive templates", () => {
+            const t1 = template("sum", [atom("A"), atom("B")]);
+            const t2 = template("sum", [atom("A"), atom("B")]);
+            const t3 = template("sum", [atom("A"), atom("C")]);
+
+            expect(terms_equal(t1, t2)).toBeTrue();
+            expect(terms_equal(t1, t3)).toBeFalse();
+        });
+
+        it("should distinguish types", () => {
+            expect(terms_equal(atom("x"), variable("x"))).toBeFalse();
+        });
+    });
+
+    // ==========================================
+    // 3. BOUNDED CHECK
+    // ==========================================
+    describe("is_bounded", () => {
+        it("should return true for atoms and nested atom templates", () => {
+            const t = template("segment", [atom("A"), atom("B")]);
+            expect(is_bounded(t)).toBeTrue();
+        });
+
+        it("should return false if a variable exists deeply", () => {
+            const t = template("segment", [atom("A"), variable("x")]);
+            expect(is_bounded(t)).toBeFalse();
+        });
+
+        it("should return false if an introduction exists", () => {
+            const t = template("line", [atom("A"), introduction("P", "P")]);
+            expect(is_bounded(t)).toBeFalse();
+        });
+    });
+
+    // ==========================================
+    // 4. BIND INTRODUCTIONS (Skolemization)
+    // ==========================================
+    describe("bind_introductions", () => {
+        it("should replace introductions with new atoms", () => {
+            let counter = 0;
+            const generator = (i: Introduction) => atom(`${i.hint}_${counter++}`);
+
+            const term = template("segment", [atom("A"), introduction("P", "NewPoint")]);
+            const result = bind_introductions(term, generator);
+
+            // Structure check
+            expect((result as any).terms[1].type).toBe("atom");
+            expect((result as any).terms[1].symbol).toBe("NewPoint_0");
+        });
+
+        it("should be consistent: same intro symbol = same atom", () => {
+            let counter = 0;
+            const generator = (i: Introduction) => atom(`Gen_${counter++}`);
+
+            // A rule like: exists(P) -> pair(P, P)
+            const term = template("pair", [introduction("X", "H"), introduction("X", "H")]);
+
+            const result = bind_introductions(term, generator);
+            const terms = (result as any).terms;
+
+            // Both should be Gen_0, NOT Gen_0 and Gen_1
+            expect(terms[0].symbol).toBe("Gen_0");
+            expect(terms[1].symbol).toBe("Gen_0");
+            expect(counter).toBe(1); // Generator called once
+        });
+    });
+
+    // ==========================================
+    // 5. BIND VARIABLES (Substitution)
+    // ==========================================
+    describe("bind_vars", () => {
+        it("should replace variables with sub map values", () => {
+            const term = template("point", [variable("x")]);
+            const sub = { "x": atom("A") };
+
+            const result = bind_vars(term, sub);
+            expect(terms_equal(result, template("point", [atom("A")]))).toBeTrue();
+        });
+
+        it("should ignore missing variables", () => {
+            const term = variable("y");
+            const sub = { "x": atom("A") };
+            const result = bind_vars(term, sub);
+            expect(result).toEqual(variable("y"));
+        });
+
+        it("should handle recursive substitution", () => {
+            // equal(sum(x, y), z)
+            const term = template("equal", [
+                template("sum", [variable("x"), variable("y")]),
+                variable("z")
             ]);
-            const testRule = rule(lhs, rhs);
 
-            const result = bind_introductions(testRule, (intro) => atom(`${intro.hint}1`));
+            const sub = {
+                "x": atom("1"),
+                "y": atom("2"),
+                "z": template("sum", [atom("1"), atom("2")])
+            };
 
-            expect(result.error).toBeUndefined();
-            expect(result.data.sub).toEqual({ z: 'O1' });
+            const result = bind_vars(term, sub);
 
-            if (result.data.rule.rhs.type === 'template') {
-                expect(result.data.rule.rhs.terms[1]).toEqual(atom('O1'));
-                expect(result.data.rule.rhs.terms[2]).toEqual(atom('O1'));
-            }
-        });
-
-        test('binds multiple different introductions', () => {
-            const lhs = template('point', [atom('A')]);
-            const rhs = template('line', [
-                introduction('z', 'O'),
-                introduction('w', 'P')
+            // Expected: equal(sum(1, 2), sum(1, 2))
+            const expected = template("equal", [
+                template("sum", [atom("1"), atom("2")]),
+                template("sum", [atom("1"), atom("2")])
             ]);
-            const testRule = rule(lhs, rhs);
 
-            let counter = 1;
-            const result = bind_introductions(testRule, (intro) => atom(`${intro.hint}${counter++}`));
-
-            expect(result.error).toBeUndefined();
-            expect(result.data.sub).toEqual({ z: 'O1', w: 'P2' });
-        });
-
-        test('handles nested rules with introductions', () => {
-            const innerLhs = template('point', [atom('A')]);
-            const innerRhs = template('point', [introduction('z', 'O')]);
-            const innerRule = rule(innerLhs, innerRhs);
-
-            const outerLhs = template('line', [atom('B')]);
-            const outerRhs = template('line', [introduction('w', 'P')]);
-            const testRule = rule(outerLhs, innerRule);
-
-            const result = bind_introductions(testRule, (intro) => atom(`${intro.hint}1`));
-
-            expect(result.error).toBeUndefined();
+            expect(terms_equal(result, expected)).toBeTrue();
         });
     });
 
-    describe('bind_vars', () => {
-        test('binds variables in LHS and RHS', () => {
-            const lhs = template('point', [variable('x')]);
-            const rhs = template('point', [variable('x')]);
-            const testRule = rule(lhs, rhs);
-            const sub = { x: 'A' };
+    // ==========================================
+    // 6. MATCHING (Unification)
+    // ==========================================
+    describe("match", () => {
+        it("should match a variable to an atom", () => {
+            const pattern = variable("x");
+            const bounded = atom("A");
 
-            const result = bind_vars(testRule, sub);
-
-            expect(result.error).toBeUndefined();
-
-            if (result.data.rule.lhs.type === 'template') {
-                expect(result.data.rule.lhs.terms[0]).toEqual(atom('A'));
-            }
-            if (result.data.rule.rhs.type === 'template') {
-                expect(result.data.rule.rhs.terms[0]).toEqual(atom('A'));
-            }
+            const res = match(pattern, bounded);
+            expect(res.error).toBeUndefined();
+            expect(res.data!.sub["x"]).toEqual(atom("A"));
         });
 
-        test('keeps unbound variables as is', () => {
-            const lhs = template('point', [variable('x')]);
-            const rhs = template('point', [variable('y')]);
-            const testRule = rule(lhs, rhs);
-            const sub = { x: 'A' };
+        it("should match a variable to a template (structural binding)", () => {
+            const pattern = template("foo", [variable("x")]);
+            const bounded = template("foo", [template("bar", [atom("A")])]);
 
-            const result = bind_vars(testRule, sub);
-
-            expect(result.error).toBeUndefined();
-
-            if (result.data.rule.lhs.type === 'template') {
-                expect(result.data.rule.lhs.terms[0]).toEqual(atom('A'));
-            }
-            if (result.data.rule.rhs.type === 'template') {
-                expect(result.data.rule.rhs.terms[0]).toEqual(variable('y'));
-            }
+            const res = match(pattern, bounded);
+            expect(res.error).toBeUndefined();
+            expect(terms_equal(res.data!.sub["x"], template("bar", [atom("A")]))).toBeTrue();
         });
 
-        test('keeps introductions unchanged', () => {
-            const lhs = template('point', [variable('x')]);
-            const rhs = template('line', [variable('x'), introduction('z', 'O')]);
-            const testRule = rule(lhs, rhs);
-            const sub = { x: 'A' };
+        it("should fail on atom mismatch", () => {
+            const pattern = template("point", [atom("A")]);
+            const bounded = template("point", [atom("B")]);
 
-            const result = bind_vars(testRule, sub);
-
-            expect(result.error).toBeUndefined();
-
-            if (result.data.rule.rhs.type === 'template') {
-                expect(result.data.rule.rhs.terms[0]).toEqual(atom('A'));
-                expect(result.data.rule.rhs.terms[1]).toEqual(introduction('z', 'O'));
-            }
+            const res = match(pattern, bounded);
+            expect(res.error).toBeDefined();
+            expect(res.error!.code).toBe("ATOM_MISMATCH");
         });
 
-        test('detects variable conflicts', () => {
-            const lhs = template('point', [variable('x')]);
-            const rhs = template('point', [variable('x')]);
-            const testRule = rule(lhs, rhs);
-            const sub = { x: 'A' };
+        it("should fail on arity mismatch", () => {
+            const pattern = template("point", [variable("x")]);
+            const bounded = template("point", [atom("A"), atom("B")]);
 
-            const result = bind_vars(testRule, sub);
+            const res = match(pattern, bounded);
+            expect(res.error!.code).toBe("ARITY_MISMATCH");
+        });
 
-            expect(result.error).toBeUndefined();
-            // Same variable should map to same atom
-            if (result.data.rule.lhs.type === 'template' && result.data.rule.rhs.type === 'template') {
-                const lhsTerm = result.data.rule.lhs.terms[0] as Atom | Variable;
-                const rhsTerm = result.data.rule.rhs.terms[0] as Atom | Variable;
-                expect(lhsTerm).toEqual(rhsTerm);
-            }
+        it("should fail on substitution conflict", () => {
+            // Pattern: equal(x, x)
+            // Bounded: equal(A, B) -> conflict, x cannot be A and B
+            const pattern = template("equal", [variable("x"), variable("x")]);
+            const bounded = template("equal", [atom("A"), atom("B")]);
+
+            const res = match(pattern, bounded);
+            expect(res.error).toBeDefined();
+            expect(res.error!.code).toBe("SUBSTITUTION_CONFLICT");
+        });
+
+        it("should succeed on consistent substitution", () => {
+            // Pattern: equal(x, x)
+            // Bounded: equal(A, A)
+            const pattern = template("equal", [variable("x"), variable("x")]);
+            const bounded = template("equal", [atom("A"), atom("A")]);
+
+            const res = match(pattern, bounded);
+            expect(res.error).toBeUndefined();
+            expect(res.data!.sub["x"]).toEqual(atom("A"));
         });
     });
 
-    describe('match', () => {
-        test('matches simple rule with bounded rule', () => {
-            const ruleLhs = template('point', [variable('x')]);
-            const ruleRhs = template('point', [atom('B')]);
-            const testRule = rule(ruleLhs, ruleRhs);
-
-            const boundedLhs = boundedTemplate('point', [atom('A')]);
-            const boundedRhs = boundedTemplate('point', [atom('B')]);
-            const testBounded = boundedRule(boundedLhs, boundedRhs);
-
-            const result = match(testRule, testBounded);
-
-            expect(result.error).toBeUndefined();
-            expect(result.data.subMap).toEqual({ x: 'A' });
+    // ==========================================
+    // 7. RULE VALIDATION
+    // ==========================================
+    describe("validate_rule", () => {
+        it("should validate a correct simple rule", () => {
+            // A => A
+            const r = rule(variable("A"), variable("A"));
+            const res = validate_rule(r);
+            expect(res.data).toBeDefined();
         });
 
-        test('detects operator mismatch', () => {
-            const ruleLhs = template('point', [variable('x')]);
-            const ruleRhs = template('point', [atom('B')]);
-            const testRule = rule(ruleLhs, ruleRhs);
-
-            const boundedLhs = boundedTemplate('line', [atom('A')]);  // Different operator
-            const boundedRhs = boundedTemplate('point', [atom('B')]);
-            const testBounded = boundedRule(boundedLhs, boundedRhs);
-
-            const result = match(testRule, testBounded);
-
-            expect(result.data).toBeUndefined();
-            expect(result.error?.code).toBe('LHS_OP_MISMATCH');
+        it("should validate a rule with multiple RHS terms (Implicit AND)", () => {
+            // segment(A, B) => point(A), point(B)
+            // All variables in RHS (A, B) exist in LHS
+            const r = rule(
+                template("segment", [variable("A"), variable("B")]),
+                template("point", [variable("A")]),
+                template("point", [variable("B")])
+            );
+            const res = validate_rule(r);
+            expect(res.data).toBeDefined();
+            expect(res.data!.vars.has("A")).toBeTrue();
+            expect(res.data!.vars.has("B")).toBeTrue();
         });
 
-        test('detects substitution conflict', () => {
-            const ruleLhs = template('line', [variable('x'), variable('x')]);
-            const ruleRhs = template('point', [atom('C')]);
-            const testRule = rule(ruleLhs, ruleRhs);
-
-            const boundedLhs = boundedTemplate('line', [atom('A'), atom('B')]);  // x maps to both A and B
-            const boundedRhs = boundedTemplate('point', [atom('C')]);
-            const testBounded = boundedRule(boundedLhs, boundedRhs);
-
-            const result = match(testRule, testBounded);
-
-            expect(result.data).toBeUndefined();
-            expect(result.error?.code).toBe('LHS_SUBSTITUTION_CONFLICT');
+        it("should validate a rule with intros", () => {
+            // segment(A, B) => segment(B, !C)
+            const r = rule(
+                template("segment", [variable("A"), variable("B")]),
+                template("segment", [variable("B"), introduction("C", "C")])
+            );
+            const res = validate_rule(r);
+            expect(res.data).toBeDefined();
         });
 
-        test('merges substitutions from both sides', () => {
-            const ruleLhs = template('point', [variable('x')]);
-            const ruleRhs = template('line', [variable('y')]);
-            const testRule = rule(ruleLhs, ruleRhs);
+        it("should fail if *any* RHS term has a variable not in LHS", () => {
+            // point(A) => point(A), line(A, B)  <-- B is unknown in the second RHS term
+            const r = rule(
+                template("point", [variable("A")]),
+                template("point", [variable("A")]),
+                template("line", [variable("A"), variable("B")])
+            );
 
-            const boundedLhs = boundedTemplate('point', [atom('A')]);
-            const boundedRhs = boundedTemplate('line', [atom('B')]);
-            const testBounded = boundedRule(boundedLhs, boundedRhs);
-
-            const result = match(testRule, testBounded);
-
-            expect(result.error).toBeUndefined();
-            expect(result.data.subMap).toEqual({ x: 'A', y: 'B' });
+            const res = validate_rule(r);
+            expect(res.error).toBeDefined();
+            expect(res.error!.code).toBe("NEW_VARIABLE_IN_RHS");
         });
 
-        test('detects cross-side substitution conflict', () => {
-            const ruleLhs = template('point', [variable('x')]);
-            const ruleRhs = template('point', [variable('x')]);
-            const testRule = rule(ruleLhs, ruleRhs);
+        it("should fail if op is not rule", () => {
+            const notRule = template("not_rule", []);
+            // Force cast to Rule to test runtime check
+            const res = validate_rule(notRule as any);
+            expect(res.error!.code).toBe("NOT_A_RULE");
+        });
 
-            const boundedLhs = boundedTemplate('point', [atom('A')]);
-            const boundedRhs = boundedTemplate('point', [atom('B')]);  // x maps to different atoms
-            const testBounded = boundedRule(boundedLhs, boundedRhs);
-
-            const result = match(testRule, testBounded);
-
-            expect(result.data).toBeUndefined();
-            expect(result.error?.code).toBe('SUBSTITUTION_CONFLICT');
+        it("should fail if rule has no RHS", () => {
+            // rule(LHS) - invalid arity
+            const r = template("rule", [atom("A")]);
+            const res = validate_rule(r as any);
+            expect(res.error!.code).toBe("INVALID_RULE_ARITY");
         });
     });
 
-    describe('validate_rule', () => {
-        test('validates rule with proper variables', () => {
-            const lhs = template('point', [variable('x'), variable('y')]);
-            const rhs = template('line', [variable('x'), variable('y')]);
-            const testRule = rule(lhs, rhs);
-
-            const result = validate_rule(testRule);
-
-            expect(result.error).toBeUndefined();
-            expect(result.data.vars).toEqual(new Set(['x', 'y']));
-        });
-
-        test('detects new variable in RHS', () => {
-            const lhs = template('point', [variable('x')]);
-            const rhs = template('line', [variable('x'), variable('y')]);  // y not in LHS
-            const testRule = rule(lhs, rhs);
-
-            const result = validate_rule(testRule);
-
-            expect(result.data).toBeUndefined();
-            expect(result.error?.code).toBe('NEW_VARIABLE_IN_RHS');
-        });
-
-        test('allows no variables', () => {
-            const lhs = template('point', [atom('A')]);
-            const rhs = template('point', [atom('B')]);
-            const testRule = rule(lhs, rhs);
-
-            const result = validate_rule(testRule);
-
-            expect(result.error).toBeUndefined();
-            expect(result.data.vars).toEqual(new Set());
-        });
-
-        test('handles nested rules', () => {
-            const innerLhs = template('point', [variable('x')]);
-            const innerRhs = template('point', [variable('y')]);
-            const innerRule = rule(innerLhs, innerRhs);
-
-            const outerLhs = template('line', [variable('z')]);
-            const outerRhs = innerRule;
-            const testRule = rule(outerLhs, outerRhs);
-
-            const result = validate_rule(testRule);
-
-            expect(result.data).toBeUndefined();
-            expect(result.error?.code).toBe('RHS_VALIDATION_ERROR');
-        });
-
-        test('collects all variables from both sides', () => {
-            const lhs = template('triangle', [variable('x'), variable('y'), variable('z')]);
-            const rhs = template('triangle', [variable('x'), variable('y')]);
-            const testRule = rule(lhs, rhs);
-
-            const result = validate_rule(testRule);
-
-            expect(result.error).toBeUndefined();
-            expect(result.data.vars).toEqual(new Set(['x', 'y', 'z']));
-        });
-    });
 });

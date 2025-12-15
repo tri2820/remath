@@ -2,9 +2,9 @@
 // Declarative Term Rewriting System (Single File)
 // ======================================================
 
-import type { Atom, Introduction, Item } from "./rewriting"
+import type { Atom, Introduction, Rule } from "./rewriting"
 
-
+type Item = Atom | Rule
 
 // ----------------------
 // Program state
@@ -23,6 +23,10 @@ class ProgramState {
         this.fresh_index = {}
     }
 
+    // TODO: making this fully deterministic using hash
+    // So that midpoint of a segment always yields the same point
+    // Would help with automated proofs
+    // For now, since the proof system is interactive, we let the user handle it (if you want something, be consistent and picking the correct one)
     introduce(intro: Introduction): Atom {
         const current_index = this.fresh_index[intro.hint] || 1
 

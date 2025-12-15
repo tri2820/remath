@@ -53,7 +53,7 @@ These are **general reasoning rules** that apply to numbers, lengths, magnitudes
 
 - **Common notions** → can be encoded as **logical rewrite rules**, e.g.:
 
-  - `equal(X,Y) ∧ equal(Y,Z)` → `equal(X,Z)`
+  - `equal(X,Y) -> equal(Y,Z)` → `equal(X,Z)`
 
 ---
 
