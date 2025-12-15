@@ -64,12 +64,12 @@ export function is_bounded(rule: Rule): {
     data: {
         bounded: BoundedRule
     },
-    error?: never
+    error?: undefined
 } | {
     error: {
         code: string,
     },
-    data?: never
+    data?: undefined
 } {
     let lhs: BoundedSide;
     if (rule.lhs.type === 'rule') {
@@ -144,12 +144,12 @@ export function bind_introductions(rule: Rule, introduce: (intro: Introduction) 
         rule: Rule,
         sub: Sub
     },
-    error?: never
+    error?: undefined
 } | {
     error: {
         code: string,
     },
-    data?: never
+    data?: undefined
 
 } {
     // introduction.symbol -> new atom.symbol
@@ -224,12 +224,12 @@ export function bind_vars(rule: Rule, sub: Sub): {
     data: {
         rule: Rule
     },
-    error?: never
+    error?: undefined
 } | {
     error: {
         code: string,
     },
-    data?: never
+    data?: undefined
 } {
     let lhs: LHS;
     if (rule.lhs.type === 'rule') {
@@ -321,12 +321,12 @@ export function match(rule: Rule, bounded: BoundedRule): {
     data: {
         subMap: Sub
     },
-    error?: never
+    error?: undefined
 } | {
     error: {
         code: string,
     },
-    data?: never
+    data?: undefined
 } {
 
 
@@ -483,12 +483,12 @@ export function validate_rule(rule: Rule): {
     data: {
         vars: Set<string>
     },
-    error?: never
+    error?: undefined
 } | {
     error: {
         code: string,
     },
-    data?: never
+    data?: undefined
 } {
 
     let lhs_vars: Set<string>;
