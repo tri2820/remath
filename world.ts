@@ -31,29 +31,7 @@ export class World {
         return this.facts.some(f => equal_term(f, pattern));
     }
 
-    // STRICT FIND: Returns a Result type
-    find(facts: Term[], fact: Term): Result<{ term: Term }> {
-        const found = facts.find(f => equal_term(f, fact));
-        if (!found) {
-            const pretty = fact.type === 'template'
-                ? `${fact.op.symbol}(${fact.terms.map(t => (t as any).symbol || '?').join(', ')})`
-                : (fact as any).symbol;
-
-            return {
-                error: {
-                    code: "NOT_FOUND",
-                    message: `Could not find term matching pattern: ${pretty}`
-                }
-            };
-        }
-        return {
-            data: {
-                term: found
-            }
-        };
-    }
-
-    private apply(rule: Rule, inputMap: Sub): Result<{
+    private _apply(rule: Rule, inputMap: Sub): Result<{
         new_facts: Term[]
     }> {
 
@@ -104,18 +82,19 @@ export class World {
                     };
                 }
 
-                // We know cannot contain introductions, but just to be safe, we check again
+                // If LHS is fully satisfied (aka bounded), we can return each RHS
                 if (all_atoms(lhs)) {
                     for (const rhs of rhs_terms) {
                         new_facts.push(rhs);
                     }
                 } else {
                     // no-op
-                    // Case LHS is not fully satisfied (aka bounded), we have yet to return each RHS, because we want to maintain their dependencies
+                    // Case LHS is not fully satisfied (aka bounded), we refrain to return each RHS, because we want to maintain their dependencies
                     // Example: RHS1: !P is midpoint of AB
                     //          RHS2: !P is center of circle with center !P and radius AB
-                    // Supposed P is to be introduced, it's hard to judge the consequences of returning partial clauses separately, since later they could be initialized and results in 2 separate Ps
-                    // Users might be able to prove they are the same, but it's better to keep them together for now.
+                    // Supposed P is to be introduced, it's hard to judge the consequences of returning partial clauses separately, since later they could be initialized and results in 2 separate Ps - each
+                    // has a property of the one true P. Or we might maintain a dependency graph to link them, but that would be complicated.
+                    // Users might be able to prove they are the same also, but it's nevertheless simpler to keep them together.
                 }
             }
 
@@ -137,7 +116,7 @@ export class World {
         };
     }
 
-    findAndApply(rule: Rule, patterns: PatternMatch[]) {
+    apply(rule: Rule, patterns: PatternMatch[]) {
         const all_ok = patterns.every(p => {
             return this.has(p.fact);
         })
@@ -195,7 +174,7 @@ export class World {
 
         // console.log("inputMap:", JSON.stringify(inputMap, null, 2));
 
-        return this.apply(rule, inputMap);
+        return this._apply(rule, inputMap);
     }
 
     // Arrow function to capture 'this' context automatically
