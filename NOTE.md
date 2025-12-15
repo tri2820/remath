@@ -1,15 +1,20 @@
-For RHS "or", use constructive determinism
+# Note
 
-Don't write: intersect(Line, Circle) => point(P1) OR point(P2) // We don't provide template "or"
-Write:
-// Rule: Intersecting a Line and Circle creates a Set S containing points P1 and P2
-export const lineCircleIntersect = rule(
-// LHS
-template("intersect", [variable("L"), variable("C")]),
+If you want RHS "or", for example to express it could be this or that, use template "or".
 
-    // RHS: We introduce the SET (S) and the POINTS (P1, P2)
-    template("intersection_set", [variable("L"), variable("C"), introduction("S", "Set")]),
-    template("in_set", [introduction("P1", "P"), introduction("S", "Set")]),
-    template("in_set", [introduction("P2", "P"), introduction("S", "Set")])
+Example:
 
+```
+// PASCH'S AXIOM
+// If Line L intersects segment AB (Side 1),
+// Then L intersects segment AC (Side 2) OR L intersects segment BC (Side 3).
+export const paschAxiom = rule(
+    // LHS: Triangle ABC exists, and Line L crosses AB
+    template("triangle", [variable("A"), variable("B"), variable("C")]),
+    template("intersects", [variable("L"), template("segment", [variable("A"), variable("B")])]),
+    template("or", [
+        template("intersects", [variable("L"), template("segment", [variable("A"), variable("C")])]),
+        template("intersects", [variable("L"), template("segment", [variable("B"), variable("C")])])
+    ])
 );
+```
