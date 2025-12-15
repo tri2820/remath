@@ -53,7 +53,6 @@ export class World {
         };
     }
 
-    // APPLY: Returns the list of FULLY BOUND facts generated/asserted by this rule
     private apply(rule: Rule, inputMap: Sub): Result<{
         new_facts: Term[]
     }> {
@@ -71,7 +70,6 @@ export class World {
         const var_bounded_rule = res.data.result
         if (all_atoms_or_introductions(var_bounded_rule)) {
             const instantiated_rule = bind_introductions(var_bounded_rule, this.introduce.bind(this));
-
 
             // Add the instantiated rule itself (optional)
             // new_facts.push(instantiated_rule);
@@ -116,8 +114,8 @@ export class World {
                     // Case LHS is not fully satisfied (aka bounded), we have yet to return each RHS, because we want to maintain their dependencies
                     // Example: RHS1: !P is midpoint of AB
                     //          RHS2: !P is center of circle with center !P and radius AB
-                    // Supposed P is to be introduced, it's hard to return partial clauses separately. Since later they could be initialized and results in 2 Ps
-                    // Users might be able to prove they are the same, But it's better to keep them together for now.
+                    // Supposed P is to be introduced, it's hard to judge the consequences of returning partial clauses separately, since later they could be initialized and results in 2 separate Ps
+                    // Users might be able to prove they are the same, but it's better to keep them together for now.
                 }
             }
 
@@ -162,7 +160,7 @@ export class World {
             // Aka, tying the shape of the template to that of the rule
             const contained = somewhere_equal(p.template, rule);
             if (!contained) {
-                console.warn("Template not found in rule:", JSON.stringify(p.template, null, 2), JSON.stringify(rule, null, 2));
+                // console.warn("Template not found in rule:", JSON.stringify(p.template, null, 2), JSON.stringify(rule, null, 2));
                 return {
                     error: {
                         code: "TEMPLATE_NOT_IN_RULE",
@@ -195,15 +193,7 @@ export class World {
             }
         }
 
-        console.log("inputMap:", JSON.stringify(inputMap, null, 2));
-
-        // Do we need to check p.template actually exists in rule?
-        // I mean, if p.template does not exists in the rule
-        // There would be no matching
-        // Thus there would be no substitution generated
-        // so inputMap is empty
-        // so no new_facts would be generated
-        // So I think it's safe to skip that check
+        // console.log("inputMap:", JSON.stringify(inputMap, null, 2));
 
         return this.apply(rule, inputMap);
     }

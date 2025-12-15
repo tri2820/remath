@@ -170,8 +170,6 @@ describe("Rewriting Engine", () => {
             { template: make_rule(x_0, y_0), fact: make_rule(pA, pB) }
         ])
 
-        console.log('res', JSON.stringify(res, null, 2));
-
         // We expect that it's partial, and the behavior is returning only 1 partial there
         expect(res.data?.new_facts.length).toEqual(2);
         // (A -> B) -> ((B -> z_0) -> (A -> z_0))
@@ -234,7 +232,6 @@ describe("Rewriting Engine", () => {
         w.add(make_rule(pB, pC));
 
         const rest = res.data!.new_facts[1]!
-        console.log('rest', JSON.stringify(rest, null, 2));
 
         if (rest.type !== 'template' || rest.op.symbol !== 'rule') {
             throw new Error("Unexpected rule structure");
@@ -243,8 +240,6 @@ describe("Rewriting Engine", () => {
         const res2 = w.findAndApply(rest, [
             { template: make_rule(pB, z_0), fact: make_rule(pB, pC) }
         ])
-
-        console.log('res2', JSON.stringify(res2, null, 2));
 
         // Finally we get A -> C
         expect(res2.data?.new_facts.length).toEqual(1);
@@ -280,7 +275,7 @@ describe("Rewriting Engine", () => {
         const fact = make_rule(pA, make_rule(pB, pC))
         w.add(fact);
 
-        // However, we want to statisty this rule
+        // However, we want to satisfy this rule
         // x -> y
         const rule = make_rule(x_0, y_0)
 
@@ -288,10 +283,6 @@ describe("Rewriting Engine", () => {
         const res = w.findAndApply(rule, [
             { template: temp, fact }
         ])
-
-
-        // Weirdly, we have B
-        console.log('res', JSON.stringify(res, null, 2));
 
         // Should fail because the input pattern does not exist in the rule
         expect(res.error?.code).toEqual("TEMPLATE_NOT_IN_RULE");
