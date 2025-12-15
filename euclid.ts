@@ -140,7 +140,7 @@ export const commonNotion3 = rule(
 // but he never wrote them down. In your game, the player 
 // should get stuck until they unlock these "Hidden Rules".
 
-// HIDDEN RULE 1: Circle Intersection
+// HIDDEN RULE: Circle Intersection
 // Euclid assumes if circles look like they cross, they do.
 // He never proves they actually meet. 
 export const circleIntersection = rule(
@@ -151,15 +151,15 @@ export const circleIntersection = rule(
         template("intersection_set", [
             variable("o1"), variable("r1"),
             variable("o2"), variable("r2"),
-            introduction("s", "Intersections")
+            introduction("s", "S")
         ]),
         // We assert there are points in this set
-        template("in_set", [introduction("p_left", "P"), introduction("s", "Intersections")]),
-        template("in_set", [introduction("p_right", "P"), introduction("s", "Intersections")])
+        template("in_set", [introduction("p_left", "P"), introduction("s", "S")]),
+        template("in_set", [introduction("p_right", "P"), introduction("s", "S")])
     )
 );
 
-// HIDDEN RULE 2: Point on Circle implies Equal Radius (Definition 15)
+// HIDDEN RULE: Point on Circle implies Equal Radius (Definition 15)
 // This technically isn't a flaw, but a Definition used as a Rule.
 export const radiiEqual = rule(
     template("circle", [variable("o"), variable("a")]),
@@ -173,7 +173,7 @@ export const radiiEqual = rule(
     )
 );
 
-// HIDDEN RULE 3: "Looking at the diagram" (Betweenness)
+// HIDDEN RULE: "Looking at the diagram" (Betweenness)
 // Euclid often assumes points are between others just by looking.
 // This rule formalizes the flaw: "If we have A-B and B-C, we assume A-B-C is a line"
 export const visualSegmentAddition = rule(
@@ -211,6 +211,30 @@ export const visualSegmentSubtraction = rule(
     )
 );
 
+// HIDDEN RULE: Equality is Symmetric
+// If we know A = B, then we also know B = A.
+export const equalitySymmetric = rule(
+    template("equal", [variable("a"), variable("b")]),
+    template("equal", [variable("b"), variable("a")])
+);
+
+// HIDDEN RULE: Segment Symmetry
+// "The distance from A to B is the same as B to A"
+// Necessary because the computer sees segment(a,b) and segment(b,a) as different data.
+export const segmentSymmetry = rule(
+    // LHS: Condition
+    template("segment", [variable("a"), variable("b")]),
+
+    // RHS 1: Implicitly create the reverse segment in the database
+    template("segment", [variable("b"), variable("a")]),
+
+    // RHS 2: Declare them equal
+    template("equal", [
+        template("segment", [variable("a"), variable("b")]),
+        template("segment", [variable("b"), variable("a")])
+    ])
+);
+
 export const euclideanAxioms = {
     text: {
         postulate1,
@@ -229,5 +253,7 @@ export const euclideanAxioms = {
         radiiEqual,
         visualSegmentAddition,
         visualSegmentSubtraction,
+        equalitySymmetric,
+        segmentSymmetry
     }
 };
