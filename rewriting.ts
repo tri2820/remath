@@ -342,7 +342,7 @@ export function match(rule: Rule, bounded: BoundedRule): {
 
 
         const result = match(rule.lhs, bounded.lhs);
-        if (!result.error) {
+        if (result.error) {
             return {
                 error: {
                     code: "LHS_SUBSTITUTION_ERROR",
@@ -406,7 +406,7 @@ export function match(rule: Rule, bounded: BoundedRule): {
             }
         }
         const result = match(rule.rhs, bounded.rhs);
-        if (!result.error) {
+        if (result.error) {
             return {
                 error: {
                     code: "RHS_SUBSTITUTION_ERROR",
@@ -494,7 +494,7 @@ export function validate_rule(rule: Rule): {
     let lhs_vars: Set<string>;
     if (rule.lhs.type === 'rule') {
         const result = validate_rule(rule.lhs);
-        if (!result.error) {
+        if (result.error) {
             return {
                 error: {
                     code: "LHS_VALIDATION_ERROR",
@@ -514,7 +514,7 @@ export function validate_rule(rule: Rule): {
     if (rule.rhs.type === 'rule') {
         const result = validate_rule(rule.rhs);
 
-        if (!result.error) {
+        if (result.error) {
             return {
                 error: {
                     code: "RHS_VALIDATION_ERROR",

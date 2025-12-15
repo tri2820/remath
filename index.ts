@@ -2,7 +2,6 @@
 // Declarative Term Rewriting System (Single File)
 // ======================================================
 
-import { CryptoHashInterface } from "bun"
 import type { Atom, Introduction, Item } from "./rewriting"
 
 
@@ -15,10 +14,12 @@ class ProgramState {
         [key: string]: number
     }
 
-    private items: Item[]
+    private axioms: Item[]
+    private assumptions: Item[]
 
-    constructor() {
-        this.items = []
+    constructor(axioms: Item[], assumptions: Item[]) {
+        this.axioms = axioms
+        this.assumptions = assumptions
         this.fresh_index = {}
     }
 
@@ -32,5 +33,9 @@ class ProgramState {
             type: "atom",
             symbol: `${intro.hint}${current_index}`
         }
+    }
+
+    get world() {
+        return [...this.axioms, ...this.assumptions]
     }
 }
