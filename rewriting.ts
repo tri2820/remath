@@ -44,6 +44,14 @@ export const template = (opSymbol: string, terms: Term[]): Template => ({
     terms
 });
 
+export const make_rule = (lhs: Term, rhs0: Term, ...rhs: Term[]): Rule => {
+    return {
+        type: 'template',
+        op: { type: "op", symbol: "rule" },
+        terms: [lhs, rhs0, ...rhs]
+    }
+}
+
 // Rule Constructor: 
 // Accepts 1 LHS, and ANY number of RHS terms (implicit AND). These RHS are dependent (for example, there is a point AND this point is the midpoint AND ...)
 // Usage: rule(LHS, RHS_1, RHS_2, RHS_3)
@@ -70,7 +78,7 @@ export function terms_equal(a: Term, b: Term): boolean {
         if (a.op.symbol !== tB.op.symbol) return false;
         if (a.terms.length !== tB.terms.length) return false;
         for (let i = 0; i < a.terms.length; i++) {
-            if (!terms_equal(a.terms[i], tB.terms[i])) return false;
+            if (!terms_equal(a.terms[i]!, tB.terms[i]!)) return false;
         }
         return true;
     }
@@ -78,11 +86,20 @@ export function terms_equal(a: Term, b: Term): boolean {
 }
 
 // 2. Bounded Check
-export function is_bounded(term: Term): boolean {
+export function all_atoms(term: Term): boolean {
     if (term.type === 'atom') return true;
     if (term.type === 'var' || term.type === 'introduction') return false;
     if (term.type === 'template') {
-        return term.terms.every(is_bounded);
+        return term.terms.every(all_atoms);
+    }
+    return true;
+}
+
+export function all_atoms_or_introductions(term: Term): boolean {
+    if (term.type === 'atom' || term.type === 'introduction') return true;
+    if (term.type === 'var') return false;
+    if (term.type === 'template') {
+        return term.terms.every(all_atoms_or_introductions);
     }
     return true;
 }
@@ -95,7 +112,7 @@ export function bind_introductions(
 ): Term {
     if (term.type === 'introduction') {
         if (term.symbol in sub) {
-            return sub[term.symbol];
+            return sub[term.symbol]!;
         } else {
             const newAtom = introduce(term);
             sub[term.symbol] = newAtom;
@@ -114,22 +131,62 @@ export function bind_introductions(
 }
 
 // 4. Bind Variables (Substitution)
-export function bind_vars(term: Term, sub: Sub): Term {
+export function bind_vars(term: Term, sub: Sub): Result<{
+    result: Term,
+    bound_vars: Set<string>
+}> {
     if (term.type === 'var') {
         if (term.symbol in sub) {
-            return sub[term.symbol];
+            return {
+                data: {
+                    // Becomes an atom
+                    result: sub[term.symbol]!,
+                    bound_vars: new Set([term.symbol])
+                }
+            };
         }
-        return term;
+
+        return {
+            data: {
+                // Still a variable
+                result: term,
+                bound_vars: new Set()
+            }
+        }
     }
 
     if (term.type === 'template') {
+        let combinedBoundVars = new Set<string>();
+        const newTerms: Term[] = [];
+
+        for (const t of term.terms) {
+            const result = bind_vars(t, sub);
+            if (result.error) {
+                return result;
+            }
+            newTerms.push(result.data.result);
+            for (const v of result.data.bound_vars) {
+                combinedBoundVars.add(v);
+            }
+        }
+
         return {
-            ...term,
-            terms: term.terms.map(t => bind_vars(t, sub))
+            data: {
+                result: {
+                    ...term,
+                    terms: newTerms
+                },
+                bound_vars: combinedBoundVars
+            }
         };
     }
 
-    return term;
+    return {
+        data: {
+            result: term,
+            bound_vars: new Set()
+        }
+    }
 }
 
 // 5. Pattern Matching (Unification)
@@ -157,14 +214,14 @@ export function match(pattern: Term, bounded: Term): Result<{ sub: Sub }> {
         let combinedSub: Sub = {};
 
         for (let i = 0; i < pattern.terms.length; i++) {
-            const result = match(pattern.terms[i], bounded.terms[i]);
+            const result = match(pattern.terms[i]!, bounded.terms[i]!);
 
             if (result.error) return result;
 
             // Merge substitutions
             for (const [key, val] of Object.entries(result.data.sub)) {
                 if (key in combinedSub) {
-                    if (!terms_equal(combinedSub[key], val)) {
+                    if (!terms_equal(combinedSub[key]!, val)) {
                         return { error: { code: "SUBSTITUTION_CONFLICT" } };
                     }
                 } else {
@@ -200,7 +257,7 @@ export function validate_rule(ruleTerm: Rule): Result<{ vars: Set<string> }> {
         return { error: { code: "INVALID_RULE_ARITY", message: "Rule must have at least LHS and one RHS term" } };
     }
 
-    const lhs = ruleTerm.terms[0];
+    const lhs = ruleTerm.terms[0]!;
     const rhsList = ruleTerm.terms.slice(1); // Treat everything else as RHS consequences
 
     const lhsVars = new Set<string>();

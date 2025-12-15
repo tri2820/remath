@@ -1,4 +1,10 @@
-import { bind_introductions, bind_vars, terms_equal, type Atom, type Introduction, type Result, type Rule, type Term } from "./rewriting";
+import { all_atoms_or_introductions, bind_introductions, bind_vars, match, terms_equal, type Atom, type Introduction, type Result, type Rule, type Sub, type Template, type Term } from "./rewriting";
+
+
+type PatternMatch = {
+    template: Term,
+    fact: Term
+}
 
 export class World {
     facts: Term[] = [];
@@ -12,17 +18,23 @@ export class World {
         }
     }
 
+    addAll(facts: Term[]) {
+        for (const fact of facts) {
+            this.add(fact);
+        }
+    }
+
     has(pattern: Term): boolean {
         return this.facts.some(f => terms_equal(f, pattern));
     }
 
     // STRICT FIND: Returns a Result type
-    find(pattern: Term): Result<{ term: Term }> {
-        const found = this.facts.find(f => terms_equal(f, pattern));
+    find(facts: Term[], fact: Term): Result<{ term: Term }> {
+        const found = facts.find(f => terms_equal(f, fact));
         if (!found) {
-            const pretty = pattern.type === 'template'
-                ? `${pattern.op.symbol}(${pattern.terms.map(t => (t as any).symbol || '?').join(', ')})`
-                : (pattern as any).symbol;
+            const pretty = fact.type === 'template'
+                ? `${fact.op.symbol}(${fact.terms.map(t => (t as any).symbol || '?').join(', ')})`
+                : (fact as any).symbol;
 
             return {
                 error: {
@@ -38,32 +50,97 @@ export class World {
         };
     }
 
-    // APPLY: Returns the list of facts generated/asserted by this rule
-    apply(ruleTemplate: Rule, inputMap: { [varName: string]: Term }): Term[] {
-        let currentRule = ruleTemplate;
+    // APPLY: Returns the list of FULLY BOUND facts generated/asserted by this rule
+    private apply(rule: Rule, inputMap: Sub): Result<{
+        new_facts: Term[]
+    }> {
+        const new_facts: Term[] = [];
+        // bind_vars
+        const res = bind_vars(rule, inputMap);
+        if (res.error) {
+            return {
+                error: res.error
+            }
+        }
+        if (all_atoms_or_introductions(res.data.result)) {
+            const instantiated_rule = bind_introductions(res.data.result, this.introduce.bind(this));
 
-        // Recursive Unwrapping (Uncurrying)
-        while (
-            currentRule.terms.length >= 2 &&
-            currentRule.terms[1].type === 'template' &&
-            currentRule.terms[1].op.symbol === 'rule'
-        ) {
-            currentRule = currentRule.terms[1] as Rule;
+
+            // Add the instantiated rule itself (optional)
+            // new_facts.push(instantiated_rule);
+
+            // Special case for rule
+            if (instantiated_rule.type == 'template' && instantiated_rule.op.symbol === 'rule') {
+                // LHS and RHS
+                // const lhs = instantiated_rule.terms[0];
+                const rhs_terms = instantiated_rule.terms.slice(1);
+
+                // Add each RHS term if not already present
+                for (const rhs of rhs_terms) {
+                    new_facts.push(rhs);
+                }
+            }
+        } else if (res.data.bound_vars.size > 0) {
+            // partial binding
+            new_facts.push(res.data.result);
+        } else {
+            // return empty, inputMap does not affect the rule
+            return {
+                data: {
+                    new_facts: []
+                }
+            };
         }
 
-        const consequences = currentRule.terms.slice(1);
-        const results: Term[] = [];
+        return {
+            data: {
+                new_facts
+            }
+        };
+    }
 
-        for (const consequence of consequences) {
-            const bound = bind_vars(consequence, inputMap);
-            // Pass this.introduce (which is now bound via arrow func)
-            const concrete = bind_introductions(bound, this.introduce);
+    findAndApply(rule: Rule, patterns: PatternMatch[]) {
+        const all_ok = patterns.every(p => {
+            return this.has(p.fact);
+        })
 
-            this.add(concrete);
-            results.push(concrete);
+        if (!all_ok) {
+            return {
+                error: {
+                    code: "INPUT_NOT_FOUND",
+                    message: `One or more input patterns could not be found in world facts.`
+                }
+            };
         }
 
-        return results;
+        // check that he fact satisfies the term
+        const inputMap: Sub = {};
+        for (const p of patterns) {
+            const sub = match(p.template, p.fact);
+            if (sub.error) {
+                return {
+                    error: sub.error
+                };
+            }
+
+            // Merge sub into inputMap
+            for (const [key, val] of Object.entries(sub.data.sub)) {
+                if (key in inputMap) {
+                    if (!terms_equal(inputMap[key]!, val)) {
+                        return {
+                            error: {
+                                code: "SUBSTITUTION_CONFLICT",
+                                message: `Conflicting substitutions for variable "${key}".`
+                            }
+                        };
+                    }
+                } else {
+                    inputMap[key] = val;
+                }
+            }
+        }
+
+        return this.apply(rule, inputMap);
     }
 
     // Arrow function to capture 'this' context automatically

@@ -6,7 +6,7 @@ import {
     template,
     rule,
     terms_equal,
-    is_bounded,
+    all_atoms,
     bind_introductions,
     bind_vars,
     match,
@@ -83,17 +83,17 @@ describe("Rewriting Engine", () => {
     describe("is_bounded", () => {
         it("should return true for atoms and nested atom templates", () => {
             const t = template("segment", [atom("A"), atom("B")]);
-            expect(is_bounded(t)).toBeTrue();
+            expect(all_atoms(t)).toBeTrue();
         });
 
         it("should return false if a variable exists deeply", () => {
             const t = template("segment", [atom("A"), variable("x")]);
-            expect(is_bounded(t)).toBeFalse();
+            expect(all_atoms(t)).toBeFalse();
         });
 
         it("should return false if an introduction exists", () => {
             const t = template("line", [atom("A"), introduction("P", "P")]);
-            expect(is_bounded(t)).toBeFalse();
+            expect(all_atoms(t)).toBeFalse();
         });
     });
 
@@ -139,14 +139,16 @@ describe("Rewriting Engine", () => {
             const sub = { "x": atom("A") };
 
             const result = bind_vars(term, sub);
-            expect(terms_equal(result, template("point", [atom("A")]))).toBeTrue();
+            if (!result.data) throw new Error("bind_vars failed");
+            expect(terms_equal(result.data.result, template("point", [atom("A")]))).toBeTrue();
         });
 
         it("should ignore missing variables", () => {
             const term = variable("y");
             const sub = { "x": atom("A") };
             const result = bind_vars(term, sub);
-            expect(result).toEqual(variable("y"));
+            if (!result.data) throw new Error("bind_vars failed");
+            expect(terms_equal(result.data.result, variable("y"))).toBeTrue();
         });
 
         it("should handle recursive substitution", () => {
@@ -170,7 +172,8 @@ describe("Rewriting Engine", () => {
                 template("sum", [atom("1"), atom("2")])
             ]);
 
-            expect(terms_equal(result, expected)).toBeTrue();
+            if (!result.data) throw new Error("bind_vars failed");
+            expect(terms_equal(result.data.result, expected)).toBeTrue();
         });
     });
 
@@ -193,7 +196,9 @@ describe("Rewriting Engine", () => {
 
             const res = match(pattern, bounded);
             expect(res.error).toBeUndefined();
-            expect(terms_equal(res.data!.sub["x"], template("bar", [atom("A")]))).toBeTrue();
+            if (!res.data) throw new Error("match failed");
+            if (!res.data.sub["x"]) throw new Error("match missing substitution for x");
+            expect(terms_equal(res.data.sub["x"], template("bar", [atom("A")]))).toBeTrue();
         });
 
         it("should fail on atom mismatch", () => {
