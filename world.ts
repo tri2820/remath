@@ -1,4 +1,4 @@
-import { all_atoms_or_introductions, bind_introductions, bind_vars, match, terms_equal, type Atom, type Introduction, type Result, type Rule, type Sub, type Template, type Term } from "./rewriting";
+import { all_atoms, all_atoms_or_introductions, bind_introductions, bind_vars, match, terms_equal, type Atom, type Introduction, type Result, type Rule, type Sub, type Template, type Term } from "./rewriting";
 
 
 type PatternMatch = {
@@ -54,6 +54,8 @@ export class World {
     private apply(rule: Rule, inputMap: Sub): Result<{
         new_facts: Term[]
     }> {
+
+
         const new_facts: Term[] = [];
         // bind_vars
         const res = bind_vars(rule, inputMap);
@@ -62,8 +64,10 @@ export class World {
                 error: res.error
             }
         }
-        if (all_atoms_or_introductions(res.data.result)) {
-            const instantiated_rule = bind_introductions(res.data.result, this.introduce.bind(this));
+
+        const var_bounded_rule = res.data.result
+        if (all_atoms_or_introductions(var_bounded_rule)) {
+            const instantiated_rule = bind_introductions(var_bounded_rule, this.introduce.bind(this));
 
 
             // Add the instantiated rule itself (optional)
@@ -81,8 +85,41 @@ export class World {
                 }
             }
         } else if (res.data.bound_vars.size > 0) {
-            // partial binding
-            new_facts.push(res.data.result);
+            // partial binding, always the first one
+            new_facts.push(var_bounded_rule);
+
+            if (var_bounded_rule.type == 'template' && var_bounded_rule.op.symbol === 'rule') {
+                // If LHS is fully bound, we can also add RHS
+
+                const lhs = var_bounded_rule.terms[0];
+                const rhs_terms = var_bounded_rule.terms.slice(1);
+
+                // We know the rule should contain lhs, but just to be safe, we check again
+                if (!lhs) {
+                    return {
+                        error: {
+                            code: "RULE_MALFORMED_NO_LHS",
+                        }
+                    };
+                }
+
+                // We know cannot contain introductions, but just to be safe, we check again
+                if (all_atoms(lhs)) {
+                    for (const rhs of rhs_terms) {
+                        new_facts.push(rhs);
+                    }
+                } else {
+                    // no-op
+                    // Case LHS is not fully satisfied (aka bounded), we have yet to return each RHS, because we want to maintain their dependencies
+                    // Example: RHS1: !P is midpoint of AB
+                    //          RHS2: !P is center of circle with center !P and radius AB
+                    // Supposed P is to be introduced, it's hard to return partial clauses separately. Since later they could be initialized and results in 2 Ps
+                    // Users might be able to prove they are the same, But it's better to keep them together for now.
+                }
+            }
+
+
+
         } else {
             // return empty, inputMap does not affect the rule
             return {
@@ -115,6 +152,7 @@ export class World {
 
         // check that he fact satisfies the term
         const inputMap: Sub = {};
+
         for (const p of patterns) {
             const sub = match(p.template, p.fact);
             if (sub.error) {
@@ -139,6 +177,16 @@ export class World {
                 }
             }
         }
+
+        console.log("inputMap:", JSON.stringify(inputMap, null, 2));
+
+        // Do we need to check p.template actually exists in rule?
+        // I mean, if p.template does not exists in the rule
+        // There would be no matching
+        // Thus there would be no substitution generated
+        // so inputMap is empty
+        // so no new_facts would be generated
+        // So I think it's safe to skip that check
 
         return this.apply(rule, inputMap);
     }
