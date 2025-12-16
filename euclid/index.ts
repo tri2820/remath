@@ -1,4 +1,12 @@
-import { rule, fact, variable, introduction, atom } from '../rewriting';
+import { rule, fact, variable, introduction, atom, make_rule } from '../rewriting';
+
+// About Rules
+// rule = [lhs, rhs0, rhs1, ...]
+// lhs is the condition to match
+// rhs are the facts to produce if lhs matches
+// Complex rules are defined using currying
+// E.g., rule(A, rule(B, C)) means "If A and B, then C"
+
 
 // ==========================================
 // 1. THE EXPLICIT POSTULATES (Construction Rules)
@@ -197,13 +205,22 @@ export const radiiEqual = rule(
 // straight lines measure as "two right angles".
 export const collinearImpliesStraightAngle = rule(
     fact("collinear", [variable("a"), variable("b"), variable("c")]),
-    fact("equal", [
+    make_rule(
         fact("angle", [variable("a"), variable("b"), variable("c")]),
-        fact("sum", [
-            atom("right_angle"),
-            atom("right_angle")
-        ])
-    ])
+        make_rule(
+            fact("right_angle", [variable("d"), variable("e"), variable("f")]),
+            make_rule(
+                fact("right_angle", [variable("g"), variable("h"), variable("i")]),
+                fact("equal", [
+                    fact("angle", [variable("a"), variable("b"), variable("c")]),
+                    fact("sum", [
+                        fact("angle", [variable("d"), variable("e"), variable("f")]),
+                        fact("angle", [variable("g"), variable("h"), variable("i")])
+                    ])
+                ])
+            )
+        )
+    )
 );
 
 // HIDDEN RULE: Linear Segment Addition (The Fix)
