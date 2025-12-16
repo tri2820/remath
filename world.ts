@@ -125,6 +125,8 @@ export class World {
     }
 
     substitute(rule: Rule, substitutions: Substitution[]) {
+        // TODO: the rule should be part of the world also?
+
         const all_ok = substitutions.every(p => {
             return this.has(p.with);
         })

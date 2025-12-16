@@ -74,11 +74,9 @@ describe("To construct an equilateral triangle on a given finite straight line",
     })
 
     it("construct the base segment AB", () => {
-        const A = atom("A");
-        const B = atom("B");
-        const pA = world.find(fact("point", [A]))!;
-        const pB = world.find(fact("point", [B]))!;
-        const goal = fact("segment", [A, B]);
+        const pA = world.find(fact("point", [atom("A")]))!;
+        const pB = world.find(fact("point", [atom("B")]))!;
+        const goal = fact("segment", [atom("A"), atom("B")]);
 
         const res = world.substitute(euclideanAxioms.text.postulate1, [
             { pattern: euclideanAxioms.text.postulate1.terms[0]!, with: pA },
@@ -91,11 +89,62 @@ describe("To construct an equilateral triangle on a given finite straight line",
         }
 
         world.addAll(res.data);
-
-        // console.log('euclideanAxioms.text.postulate1:', JSON.stringify(euclideanAxioms.text.postulate1, null, 2));
-        // console.log("res:", JSON.stringify(res, null, 2));
         expect(world.has(goal)).toBe(true);
-        // expect(world.facts.length).toBe(3);
     })
+
+    it("construct circle (A, B)", () => {
+        const segAB = world.find(fact("segment", [atom("A"), atom("B")]))!;
+        const goal = fact("circle", [atom("A"), atom("B")]);
+        const res = world.substitute(euclideanAxioms.text.postulate3, [
+            { pattern: euclideanAxioms.text.postulate3.terms[0]!, with: segAB },
+        ])
+
+        if (res.error) {
+            throw new Error(`Substitution failed: ${JSON.stringify(res.error)}`);
+        }
+
+        world.addAll(res.data);
+        expect(world.has(goal)).toBe(true);
+    })
+
+
+    it("construct segment BA", () => {
+        const segAB = world.find(fact("segment", [atom("A"), atom("B")]))!;
+        const segBA = world.find(fact("segment", [atom("B"), atom("A")]));
+        const goal = fact("segment", [atom("B"), atom("A")]);
+
+        // We have segAB but not segBA yet, because we have not applied segmentSymmetry
+        expect(segAB).toBeDefined();
+        expect(segBA).toBeUndefined();
+
+        const res = world.substitute(euclideanAxioms.hidden_assumptions.segmentSymmetry, [
+            { pattern: euclideanAxioms.hidden_assumptions.segmentSymmetry.terms[0]!, with: segAB },
+        ])
+
+        if (res.error) {
+            throw new Error(`Substitution failed: ${JSON.stringify(res.error)}`);
+        }
+
+        world.addAll(res.data);
+        expect(world.has(goal)).toBe(true);
+    })
+
+    it("construct circle (B, A)", () => {
+        const segBA = world.find(fact("segment", [atom("B"), atom("A")]))!;
+        const goal = fact("circle", [atom("B"), atom("A")]);
+
+        const res = world.substitute(euclideanAxioms.text.postulate3, [
+            { pattern: euclideanAxioms.text.postulate3.terms[0]!, with: segBA },
+        ])
+
+        if (res.error) {
+            throw new Error(`Substitution failed: ${JSON.stringify(res.error)}`);
+        }
+
+        world.addAll(res.data);
+        expect(world.has(goal)).toBe(true);
+    })
+
+
 
 })
