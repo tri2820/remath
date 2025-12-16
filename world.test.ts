@@ -41,8 +41,13 @@ describe("Rewriting Engine", () => {
         w.add(pA);
         // This means: replacing variable x with pA
         const res = w.substitute(id, [{ pattern: x_0, with: pA }])
-        expect(res.data?.new_facts.length).toEqual(1);
-        expect(res.data?.new_facts[0]).toEqual(pA);
+
+        // 2 facts:
+        // A -> A
+        // A
+        expect(res.data?.length).toEqual(2);
+        expect(res.data?.[0]).toEqual(make_rule(pA, pA));
+        expect(res.data?.[1]).toEqual(pA);
     });
 
     it("Should replace based on symbol", () => {
@@ -59,8 +64,13 @@ describe("Rewriting Engine", () => {
         const id = make_rule(x_0, x_0)
         w.add(pA);
         const res = w.substitute(id, [{ pattern: x_0, with: pA }])
-        expect(res.data?.new_facts.length).toEqual(1);
-        expect(res.data?.new_facts[0]).toEqual(pA);
+
+        // 2 facts:
+        // A -> A
+        // A
+        expect(res.data?.length).toEqual(2);
+        expect(res.data?.[0]).toEqual(make_rule(pA, pA));
+        expect(res.data?.[1]).toEqual(pA);
     });
 
 
@@ -78,9 +88,16 @@ describe("Rewriting Engine", () => {
         const cid = make_rule(x_0, make_rule(x_0, x_0))
         w.add(pA);
         const res = w.substitute(cid, [{ pattern: x_0, with: pA }])
-        expect(res.data?.new_facts.length).toEqual(1);
+
+
+        // 3 facts:
+        // A -> (A -> A)
         // A -> A
-        expect(res.data?.new_facts[0]).toEqual(make_rule(pA, pA));
+        // A
+        expect(res.data?.length).toEqual(3);
+        expect(res.data?.[0]).toEqual(make_rule(pA, make_rule(pA, pA)));
+        expect(res.data?.[1]).toEqual(make_rule(pA, pA));
+        expect(res.data?.[2]).toEqual(pA);
     });
 
     it("Should work with nested currying rules, complex", () => {
@@ -103,9 +120,30 @@ describe("Rewriting Engine", () => {
             with: AtoA
         }])
 
-        expect(res.data?.new_facts.length).toEqual(1);
+
+        console.log('OOJJ', JSON.stringify(res, null, 2));
+
+        expect(res.data?.length).toEqual(3);
+
+        // 3 facts:
+        // (A -> A) -> (A -> A)
         // A -> A
-        expect(res.data?.new_facts[0]).toEqual(make_rule(pA, pA));
+        // Interestingly, we also have A. 
+        // A
+
+
+        // Note here: We have A based on decomposition of A -> A
+        // LHS there is fullfilled, so we can decompose it further
+        // The logic for it is: the ONLY way for the LHS to be fulfilled is that A exists in the world
+        // So it's okay to return RHS (currently only trivially A - something already exists as fact in the world, but definitely can be more complicated - something have yet be as fact in the world)
+
+        // If LHS (ingredients) does not exist in the world, user would have had no way to fulfill it.
+        // So basically, there is some smartness from the rewritting engine here: it found a way to fulfill LHS, accidentally from seemingly irrelevant substitution patterns
+        // given by the user.
+
+        expect(res.data?.[0]).toEqual(make_rule(make_rule(pA, pA), make_rule(pA, pA)));
+        expect(res.data?.[1]).toEqual(make_rule(pA, pA));
+        expect(res.data?.[2]).toEqual(pA);
     });
 
     it("Should error on conflicting substitutions", () => {
@@ -171,12 +209,12 @@ describe("Rewriting Engine", () => {
         ])
 
         // We expect that it's partial, and the behavior is returning only 1 partial there
-        expect(res.data?.new_facts.length).toEqual(2);
+        expect(res.data?.length).toEqual(2);
         // (A -> B) -> ((B -> z_0) -> (A -> z_0))
         // And also below because LHS is fully bound
         // (B -> z_0) -> (A -> z_0)
-        expect(res.data?.new_facts[0]).toEqual(make_rule(make_rule(pA, pB), make_rule(make_rule(pB, z_0), make_rule(pA, z_0))));
-        expect(res.data?.new_facts[1]).toEqual(make_rule(make_rule(pB, z_0), make_rule(pA, z_0)));
+        expect(res.data?.[0]).toEqual(make_rule(make_rule(pA, pB), make_rule(make_rule(pB, z_0), make_rule(pA, z_0))));
+        expect(res.data?.[1]).toEqual(make_rule(make_rule(pB, z_0), make_rule(pA, z_0)));
     });
 
     it("Fully bind tests", () => {
@@ -223,27 +261,38 @@ describe("Rewriting Engine", () => {
         // (A -> B) -> ((B -> z) -> (A -> z))
         // Also return below because LHS is fully bound
         // (B -> z) -> (A -> z)
-        expect(res.data?.new_facts.length).toEqual(2);
-        expect(res.data?.new_facts[0]).toEqual(make_rule(make_rule(pA, pB), make_rule(make_rule(pB, z_0), make_rule(pA, z_0))));
-        expect(res.data?.new_facts[1]).toEqual(make_rule(make_rule(pB, z_0), make_rule(pA, z_0)));
+        expect(res.data?.length).toEqual(2);
+        expect(res.data?.[0]).toEqual(make_rule(make_rule(pA, pB), make_rule(make_rule(pB, z_0), make_rule(pA, z_0))));
+        expect(res.data?.[1]).toEqual(make_rule(make_rule(pB, z_0), make_rule(pA, z_0)));
 
 
         // Supposed only later on that we have 
         w.add(make_rule(pB, pC));
 
-        const rest = res.data!.new_facts[1]!
+        const BzAz = res.data![1]!
 
-        if (rest.type !== "fact" || rest.op.symbol !== 'rule') {
+        if (BzAz.type !== "fact" || BzAz.op.symbol !== 'rule') {
             throw new Error("Unexpected rule structure");
         }
 
-        const res2 = w.substitute(rest, [
+        const res2 = w.substitute(BzAz, [
             { pattern: make_rule(pB, z_0), with: make_rule(pB, pC) }
         ])
 
         // Finally we get A -> C
-        expect(res2.data?.new_facts.length).toEqual(1);
-        expect(res2.data?.new_facts[0]).toEqual(make_rule(pA, pC));
+        // 3 facts:
+        // (B -> C) -> (A -> C)
+        // A -> C
+        // C
+
+        // Note: We could have also gotten (A -> B) -> ((B -> C) -> (A -> C)) by applying to ABBzAz instead.
+
+        console.log('FINAL RES2:', JSON.stringify(res2, null, 2));
+        expect(res2.data?.length).toEqual(3);
+        // expect(res2.data?.[0]).toEqual(make_rule(make_rule(pA, pB), make_rule(make_rule(pB, pC), make_rule(pA, pC))));
+        expect(res2.data?.[0]).toEqual(make_rule(make_rule(pB, pC), make_rule(pA, pC)));
+        expect(res2.data?.[1]).toEqual(make_rule(pA, pC));
+        expect(res2.data?.[2]).toEqual(pC);
     });
 
     it("Try a pattern that does not exist in rule", () => {
@@ -285,6 +334,53 @@ describe("Rewriting Engine", () => {
         ])
 
         // Should fail because the input pattern does not exist in the rule
-        expect(res.error?.code).toEqual("TEMPLATE_NOT_IN_RULE");
+        expect(res.error?.code).toEqual("PATTERN_NOT_IN_RULE");
+    })
+
+    it("Try decomposing nested patterns", () => {
+        const a = atom("A");
+        expect(a).toEqual({ type: "atom", symbol: "A" });
+
+        const b = atom("B");
+        expect(b).toEqual({ type: "atom", symbol: "B" });
+
+        const c = atom("C");
+        expect(c).toEqual({ type: "atom", symbol: "C" });
+
+        const pA = fact("point", [a]);
+        const pB = fact("point", [b]);
+        const pC = fact("point", [c]);
+
+        const x_0 = variable("x");
+        expect(x_0).toEqual({ type: "var", symbol: "x" });
+        const y_0 = variable("y");
+        expect(y_0).toEqual({ type: "var", symbol: "y" });
+        const z_0 = variable("z");
+        expect(z_0).toEqual({ type: "var", symbol: "z" });
+
+        const w = new World();
+
+        w.add(pA);
+        w.add(pB);
+
+        // substitute both x and y, this should give us both(A B)
+        // x -> y -> both(x y)
+        const rule = make_rule(x_0, make_rule(y_0, fact("both", [x_0, y_0])))
+
+        const res = w.substitute(rule, [
+            { pattern: x_0, with: pA },
+            { pattern: y_0, with: pB }
+        ])
+
+        // console.log("res:", JSON.stringify(res, null, 2));
+
+        // 3 facts:
+        // A -> (B -> both(A B))
+        // B -> both(A B)
+        // both(A B)
+        expect(res.data?.length).toEqual(3);
+        expect(res.data?.[0]).toEqual(make_rule(pA, make_rule(pB, fact("both", [pA, pB]))));
+        expect(res.data?.[1]).toEqual(make_rule(pB, fact("both", [pA, pB])));
+        expect(res.data?.[2]).toEqual(fact("both", [pA, pB]));
     })
 })

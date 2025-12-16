@@ -31,11 +31,65 @@ export class World {
         return this.facts.some(f => equal_term(f, pattern));
     }
 
-    private substituteVar(rule: Rule, inputMap: Sub): Result<{
-        new_facts: Term[]
-    }> {
+    find(pattern: Term): Term | undefined {
+        return this.facts.find(f => equal_term(f, pattern));
+    }
 
+    private static deduplicate(terms: Term[]): Term[] {
+        const unique_terms: Term[] = [];
+        for (const term of terms) {
+            if (!unique_terms.some(t => equal_term(t, term))) {
+                unique_terms.push(term);
+            }
+        }
+        return unique_terms;
+    }
 
+    private static decompose(maybe_rules: Term[]) {
+        const new_facts: Term[] = [];
+        while (true) {
+            const current_rule = maybe_rules.pop();
+            if (!current_rule) break;
+            if (current_rule.type !== "fact" || current_rule.op.symbol !== 'rule') continue;
+
+            const lhs = current_rule.terms[0];
+            const rhs_terms = current_rule.terms.slice(1);
+
+            // We know the rule should contain lhs, but just to be safe, we check again
+            if (!lhs) {
+                return {
+                    error: {
+                        code: "RULE_MALFORMED_NO_LHS",
+                    }
+                };
+            }
+
+            // If LHS is fully satisfied (aka bounded), we can return each RHS
+            if (all_atoms(lhs)) {
+
+                // console.log('LHS OK', JSON.stringify(lhs, null, 2));
+                for (const rhs of rhs_terms) {
+                    new_facts.push(rhs);
+                    // console.log('CHECK', JSON.stringify(rhs, null, 2));
+                    maybe_rules.push(rhs);
+                }
+            } else {
+                // no-op
+                // Case LHS is not fully satisfied (aka bounded), we refrain to return each RHS, because we want to maintain their dependencies
+                // Example: RHS1: !P is midpoint of AB
+                //          RHS2: !P is center of circle with center !P and radius AB
+                // Supposed P is to be introduced, it's hard to judge the consequences of returning partial clauses separately, since later they could be initialized and results in 2 separate Ps - each
+                // has a property of the one true P. Or we might maintain a dependency graph to link them, but that would be complicated.
+                // Users might be able to prove they are the same also, but it's nevertheless simpler to keep them together.
+            }
+        }
+
+        return {
+            data: new_facts
+        }
+    }
+
+    private substituteVar(rule: Rule, inputMap: Sub): Result<Term[]> {
         const new_facts: Term[] = [];
         // bind_vars
         const res = bind_vars(rule, inputMap);
@@ -45,74 +99,28 @@ export class World {
             }
         }
 
-        const var_bounded_rule = res.data.result
-        if (all_atoms_or_introductions(var_bounded_rule)) {
-            const instantiated_rule = bind_introductions(var_bounded_rule, this.introduce.bind(this));
 
-            // Add the instantiated rule itself (optional)
-            // new_facts.push(instantiated_rule);
-
-            // Special case for rule
-            if (instantiated_rule.type == "fact" && instantiated_rule.op.symbol === 'rule') {
-                // LHS and RHS
-                // const lhs = instantiated_rule.terms[0];
-                const rhs_terms = instantiated_rule.terms.slice(1);
-
-                // Add each RHS term if not already present
-                for (const rhs of rhs_terms) {
-                    new_facts.push(rhs);
-                }
-            }
-        } else if (res.data.bound_vars.size > 0) {
-            // partial binding, always the first one
-            new_facts.push(var_bounded_rule);
-
-            if (var_bounded_rule.type == "fact" && var_bounded_rule.op.symbol === 'rule') {
-                // If LHS is fully bound, we can also add RHS
-
-                const lhs = var_bounded_rule.terms[0];
-                const rhs_terms = var_bounded_rule.terms.slice(1);
-
-                // We know the rule should contain lhs, but just to be safe, we check again
-                if (!lhs) {
-                    return {
-                        error: {
-                            code: "RULE_MALFORMED_NO_LHS",
-                        }
-                    };
-                }
-
-                // If LHS is fully satisfied (aka bounded), we can return each RHS
-                if (all_atoms(lhs)) {
-                    for (const rhs of rhs_terms) {
-                        new_facts.push(rhs);
-                    }
-                } else {
-                    // no-op
-                    // Case LHS is not fully satisfied (aka bounded), we refrain to return each RHS, because we want to maintain their dependencies
-                    // Example: RHS1: !P is midpoint of AB
-                    //          RHS2: !P is center of circle with center !P and radius AB
-                    // Supposed P is to be introduced, it's hard to judge the consequences of returning partial clauses separately, since later they could be initialized and results in 2 separate Ps - each
-                    // has a property of the one true P. Or we might maintain a dependency graph to link them, but that would be complicated.
-                    // Users might be able to prove they are the same also, but it's nevertheless simpler to keep them together.
-                }
-            }
-
-
-
-        } else {
-            // return empty, inputMap does not affect the rule
+        if (res.data.bound_vars.size == 0) {
+            // return empty, there was nothing bound
             return {
-                data: {
-                    new_facts: []
-                }
+                data: []
             };
         }
 
+        // TODO: only upon new facts added to the World do we actually increase the counter
+        // But for now, there is no harm in increasing it here also
+        const bounded_rule = all_atoms_or_introductions(res.data.result) ? bind_introductions(res.data.result, this.introduce.bind(this)) : res.data.result;
+        new_facts.push(bounded_rule);
+
+        const decompose_res = World.decompose([bounded_rule]);
+        if (decompose_res.error) {
+            return decompose_res;
+        }
+
+        new_facts.push(...decompose_res.data);
+
         return {
-            data: {
-                new_facts
-            }
+            data: World.deduplicate(new_facts)
         };
     }
 
@@ -142,8 +150,8 @@ export class World {
                 // console.warn("Template not found in rule:", JSON.stringify(p.template, null, 2), JSON.stringify(rule, null, 2));
                 return {
                     error: {
-                        code: "TEMPLATE_NOT_IN_RULE",
-                        message: `The provided template is not found in the given rule.`
+                        code: "PATTERN_NOT_IN_RULE",
+                        message: `The provided pattern is not found in the given rule.`
                     }
                 };
             }
