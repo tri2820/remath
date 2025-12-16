@@ -20,16 +20,21 @@ describe("Euclid Prop 2: Place a line equal to a given line at a given point", (
     // ==========================================
     // SETUP: The Given
     // ==========================================
-    it("setup: given point A and segment BC", () => {
+    it("setup: given point A, B, C", () => {
         const pA = fact("point", [atom("A")]);
         const pB = fact("point", [atom("B")]);
         const pC = fact("point", [atom("C")]);
-        const segBC = fact("segment", [atom("B"), atom("C")]);
 
         world.add(pA);
         world.add(pB);
         world.add(pC);
-        world.add(segBC);
+    });
+
+
+    it("draw AB", () => {
+        const pA = world.find(fact("point", [atom("A")]))!;
+        const pB = world.find(fact("point", [atom("B")]))!;
+        const goal = fact("segment", [atom("A"), atom("B")]);
 
         // Draw line AB (Postulate 1) to start the construction
         const res = world.substitute(euclideanAxioms.text.postulate1, [
@@ -38,13 +43,12 @@ describe("Euclid Prop 2: Place a line equal to a given line at a given point", (
         ]);
         if (res.error) throw res.error;
         world.addAll(res.data);
-    });
 
-    // ==========================================
-    // STEP 1: Construct Equilateral Triangle DAB
-    // ==========================================
+        expect(world.has(goal)).toBe(true);
+    })
+
     it("construct equilateral triangle DAB on AB", () => {
-
+        // TODO
     });
 
 });

@@ -23,3 +23,13 @@ export const paschAxiom = rule(
 
 - Automate apply some rules
 - tracking substitutions (rule usage) (example: Use 1.1 etc)
+
+#
+
+- When doing prop 2, I feel myself lazy rewriting the equilateral triangle construction
+- How do I store the transition from the world with only 2 facts (point A, point B) to that world with equilateral triangle fact as proof?
+- In terms of programming classes, the World class sees me add facts to it
+- It does not know if these facts are arbitrary (facts I created), or can built from within (from the facts it owns).
+- I need to show it that.
+- `.lock()` -> now add and addAll only accept facts spitted out by `.substitute`
+- `.substitute()` -> Now it remembers all facts it has ever spitted out

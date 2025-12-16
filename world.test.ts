@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { atom, make_rule, fact, variable, rule } from "./rewriting";
+import { atom, make_rule, fact, variable, rule, introduction } from "./rewriting";
 import { World } from "./world";
 
 
@@ -471,4 +471,38 @@ describe("Rewriting Engine", () => {
             )
         );
     });
+
+
+    it("Cannot add arbitrary facts after the world is locked", () => {
+        const w = new World();
+        w.add(fact("point", [atom("A")]));
+        w.lock();
+
+        expect(() => {
+            w.add(fact("point", [atom("B")]));
+        }).toThrowError("This world is locked. This fact is not created by this world. Where does it come from?");
+    })
+
+    it("Can add facts that are derived, after the world is locked", () => {
+        const w = new World();
+        w.add(fact("point", [atom("A")]));
+        // x -> y
+        const rule = make_rule(fact("point", [variable("x")]), fact("point", [introduction("y")]));
+        w.add(rule);
+        w.lock();
+
+        const res = w.substitute(rule, [
+            { pattern: fact("point", [variable("x")]), with: fact("point", [atom("A")]) }
+        ])
+
+        if (res.error) throw new Error('Unexpected error')
+        expect(res.data.length).toEqual(2);
+        expect(res.data[0]).toEqual(make_rule(fact("point", [atom("A")]), fact("point", [atom("B")])));
+        // HACK: We know the world's introduce function is deterministic
+        expect(res.data[1]).toEqual(fact("point", [atom("B")]));
+
+        w.addAll(res.data);
+        expect(w.has(fact("point", [atom("B")]))).toBe(true);
+    })
+
 })

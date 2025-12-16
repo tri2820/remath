@@ -23,6 +23,10 @@ describe("Euclid prop 1: Construct equilateral triangle", () => {
         expect(world).toBeDefined();
         expect(world.has(pA)).toBe(true);
         expect(world.has(pB)).toBe(true)
+
+        // Cannot add new arbitrary facts after this
+        // Facts must be derived from the world's existing facts
+        world.lock();
     })
 
     it("construct the base segment AB", () => {

@@ -13,10 +13,27 @@ export class World {
     facts: Term[] = [];
 
     // Initialize the index map
-    private fresh_index: { [key: string]: number } = {};
+    private __locked = false;
+    private derived_facts: Term[] = [];
+
+    // Funny how this reminds me of Laws of Form.
+    // In that the world would not be "locked", I think. 
+    // There would be some other sort of mechanism to involve the world to adapt to facts that are born from paradoxes.
+    lock() {
+        this.__locked = true;
+    }
+
+    get locked() {
+        return this.__locked;
+    }
 
     add(fact: Term) {
         if (!this.has(fact)) {
+            if (this.locked) {
+                if (!this.derived_facts.some(f => equal_term(f, fact))) {
+                    throw new Error("This world is locked. This fact is not created by this world. Where does it come from?");
+                }
+            }
             this.facts.push(fact);
         }
     }
@@ -203,8 +220,13 @@ export class World {
         }
 
         // console.log("inputMap:", JSON.stringify(inputMap, null, 2));
+        const res = this.substituteVar(rule, inputMap);
 
-        return this.substituteVar(rule, inputMap);
+        // If world is locked, we track created facts
+        if (this.locked) {
+            if (res.data) this.derived_facts = World.deduplicate([...this.derived_facts, ...res.data]);
+        }
+        return res;
     }
 
 
