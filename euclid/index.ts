@@ -81,9 +81,10 @@ export const definition_Line = rule(
 // "A plane angle is the inclination to one another of two lines..."
 // Logic: An angle exists only if the two segments forming it exist.
 export const definition_Angle = rule(
-    fact("segment", [variable("b"), variable("a")]),
-    fact("segment", [variable("b"), variable("c")]),
+    fact("line", [variable("b"), variable("a")]),
+    fact("line", [variable("b"), variable("c")]),
     fact("angle", [variable("a"), variable("b"), variable("c")])
+    // Are we talking about small angles only?
 );
 
 // Definition 10: Right Angle (Perpendicularity)
@@ -270,6 +271,33 @@ export const segmentSymmetry = rule(
         fact("segment", [variable("a"), variable("b")]),
         fact("segment", [variable("b"), variable("a")])
     ])
+);
+
+// 1. Line-Circle Intersection (Construction)
+// "To produce a straight line (segment AB) until it meets a circle (Center B)."
+export const lineCircleIntersection = rule(
+    // The Input: A directional segment A -> B
+    fact("segment", [variable("a"), variable("b")]),
+    rule(
+        // The Boundary: A circle centered at the endpoint B
+        fact("circle", [variable("b"), variable("r")]),
+
+        // The Output: A new point X created by the intersection
+        fact("point", [introduction("x")]),
+
+        // 1. It preserves the line (A -> B -> X)
+        fact("collinear", [variable("a"), variable("b"), introduction("x")]),
+
+        // 2. It lies on the boundary
+        fact("on_circle", [introduction("x"), variable("b"), variable("r")])
+    )
+);
+
+export const collinearSymmetry = rule(
+    // Input: A-B-C
+    fact("collinear", [variable("a"), variable("b"), variable("c")]),
+    // Output: C-B-A
+    fact("collinear", [variable("c"), variable("b"), variable("a")])
 );
 
 export const euclideanAxioms = {
