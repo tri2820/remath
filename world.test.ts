@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { atom, make_rule, template, variable } from "./rewriting";
+import { atom, make_rule, fact, variable } from "./rewriting";
 import { World } from "./world";
 
 
@@ -8,7 +8,7 @@ describe("Rewriting Engine", () => {
         const a = atom("A");
         expect(a).toEqual({ type: "atom", symbol: "A" });
 
-        const pA = template("point", [a]);
+        const pA = fact("point", [a]);
 
         const x_0 = variable("x");
         expect(x_0).toEqual({ type: "var", symbol: "x" });
@@ -27,7 +27,7 @@ describe("Rewriting Engine", () => {
         const a = atom("A");
         expect(a).toEqual({ type: "atom", symbol: "A" });
 
-        const pA = template("point", [a]);
+        const pA = fact("point", [a]);
 
         const x_0 = variable("x");
         expect(x_0).toEqual({ type: "var", symbol: "x" });
@@ -49,7 +49,7 @@ describe("Rewriting Engine", () => {
         const a = atom("A");
         expect(a).toEqual({ type: "atom", symbol: "A" });
 
-        const pA = template("point", [a]);
+        const pA = fact("point", [a]);
 
         const x_0 = variable("x");
         expect(x_0).toEqual({ type: "var", symbol: "x" });
@@ -68,7 +68,7 @@ describe("Rewriting Engine", () => {
         const a = atom("A");
         expect(a).toEqual({ type: "atom", symbol: "A" });
 
-        const pA = template("point", [a]);
+        const pA = fact("point", [a]);
 
         const x_0 = variable("x");
         expect(x_0).toEqual({ type: "var", symbol: "x" });
@@ -87,7 +87,7 @@ describe("Rewriting Engine", () => {
         const a = atom("A");
         expect(a).toEqual({ type: "atom", symbol: "A" });
 
-        const pA = template("point", [a]);
+        const pA = fact("point", [a]);
 
         const x_0 = variable("x");
         expect(x_0).toEqual({ type: "var", symbol: "x" });
@@ -118,9 +118,9 @@ describe("Rewriting Engine", () => {
         const c = atom("C");
         expect(c).toEqual({ type: "atom", symbol: "C" });
 
-        const pA = template("point", [a]);
-        const pB = template("point", [b]);
-        const pC = template("point", [c]);
+        const pA = fact("point", [a]);
+        const pB = fact("point", [b]);
+        const pC = fact("point", [c]);
 
         const x_0 = variable("x");
         expect(x_0).toEqual({ type: "var", symbol: "x" });
@@ -151,8 +151,8 @@ describe("Rewriting Engine", () => {
         const b = atom("B");
         expect(b).toEqual({ type: "atom", symbol: "B" });
 
-        const pA = template("point", [a]);
-        const pB = template("point", [b]);
+        const pA = fact("point", [a]);
+        const pB = fact("point", [b]);
 
         const x_0 = variable("x");
         expect(x_0).toEqual({ type: "var", symbol: "x" });
@@ -189,9 +189,9 @@ describe("Rewriting Engine", () => {
         const c = atom("C");
         expect(c).toEqual({ type: "atom", symbol: "C" });
 
-        const pA = template("point", [a]);
-        const pB = template("point", [b]);
-        const pC = template("point", [c]);
+        const pA = fact("point", [a]);
+        const pB = fact("point", [b]);
+        const pC = fact("point", [c]);
 
         const x_0 = variable("x");
         expect(x_0).toEqual({ type: "var", symbol: "x" });
@@ -233,7 +233,7 @@ describe("Rewriting Engine", () => {
 
         const rest = res.data!.new_facts[1]!
 
-        if (rest.type !== 'template' || rest.op.symbol !== 'rule') {
+        if (rest.type !== "fact" || rest.op.symbol !== 'rule') {
             throw new Error("Unexpected rule structure");
         }
 
@@ -256,9 +256,9 @@ describe("Rewriting Engine", () => {
         const c = atom("C");
         expect(c).toEqual({ type: "atom", symbol: "C" });
 
-        const pA = template("point", [a]);
-        const pB = template("point", [b]);
-        const pC = template("point", [c]);
+        const pA = fact("point", [a]);
+        const pB = fact("point", [b]);
+        const pC = fact("point", [c]);
 
         const x_0 = variable("x");
         expect(x_0).toEqual({ type: "var", symbol: "x" });
@@ -272,8 +272,8 @@ describe("Rewriting Engine", () => {
         const temp = make_rule(x_0, make_rule(y_0, z_0))
 
         // Suppose we have a fact satisfying that template
-        const fact = make_rule(pA, make_rule(pB, pC))
-        w.add(fact);
+        const instance = make_rule(pA, make_rule(pB, pC))
+        w.add(instance);
 
         // However, we want to satisfy this rule
         // x -> y
@@ -281,7 +281,7 @@ describe("Rewriting Engine", () => {
 
         // Try
         const res = w.apply(rule, [
-            { template: temp, fact }
+            { template: temp, fact: instance }
         ])
 
         // Should fail because the input pattern does not exist in the rule

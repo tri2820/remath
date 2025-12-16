@@ -3,7 +3,7 @@ import {
     atom,
     variable,
     introduction,
-    template,
+    fact,
     rule,
     equal_term,
     all_atoms,
@@ -28,15 +28,15 @@ describe("Rewriting Engine", () => {
             const v = variable("x");
             expect(v).toEqual({ type: "var", symbol: "x" });
 
-            const t = template("point", [a, v]);
-            expect(t.type).toBe("template");
+            const t = fact("point", [a, v]);
+            expect(t.type).toBe("fact");
             expect(t.op.symbol).toBe("point");
             expect(t.terms).toHaveLength(2);
         });
 
         it("should treat rules as templates", () => {
             const r = rule(atom("A"), atom("B"));
-            expect(r.type).toBe("template");
+            expect(r.type).toBe("fact");
             expect(r.op.symbol).toBe("rule");
             expect(r.terms[0]).toEqual(atom("A")); // LHS
             expect(r.terms[1]).toEqual(atom("B")); // RHS 1
@@ -64,9 +64,9 @@ describe("Rewriting Engine", () => {
         });
 
         it("should match recursive templates", () => {
-            const t1 = template("sum", [atom("A"), atom("B")]);
-            const t2 = template("sum", [atom("A"), atom("B")]);
-            const t3 = template("sum", [atom("A"), atom("C")]);
+            const t1 = fact("sum", [atom("A"), atom("B")]);
+            const t2 = fact("sum", [atom("A"), atom("B")]);
+            const t3 = fact("sum", [atom("A"), atom("C")]);
 
             expect(equal_term(t1, t2)).toBeTrue();
             expect(equal_term(t1, t3)).toBeFalse();
@@ -82,17 +82,17 @@ describe("Rewriting Engine", () => {
     // ==========================================
     describe("is_bounded", () => {
         it("should return true for atoms and nested atom templates", () => {
-            const t = template("segment", [atom("A"), atom("B")]);
+            const t = fact("segment", [atom("A"), atom("B")]);
             expect(all_atoms(t)).toBeTrue();
         });
 
         it("should return false if a variable exists deeply", () => {
-            const t = template("segment", [atom("A"), variable("x")]);
+            const t = fact("segment", [atom("A"), variable("x")]);
             expect(all_atoms(t)).toBeFalse();
         });
 
         it("should return false if an introduction exists", () => {
-            const t = template("line", [atom("A"), introduction("P", "P")]);
+            const t = fact("line", [atom("A"), introduction("P", "P")]);
             expect(all_atoms(t)).toBeFalse();
         });
     });
@@ -105,7 +105,7 @@ describe("Rewriting Engine", () => {
             let counter = 0;
             const generator = (i: Introduction) => atom(`${i.hint}_${counter++}`);
 
-            const term = template("segment", [atom("A"), introduction("P", "NewPoint")]);
+            const term = fact("segment", [atom("A"), introduction("P", "NewPoint")]);
             const result = bind_introductions(term, generator);
 
             // Structure check
@@ -118,7 +118,7 @@ describe("Rewriting Engine", () => {
             const generator = (i: Introduction) => atom(`Gen_${counter++}`);
 
             // A rule like: exists(P) -> pair(P, P)
-            const term = template("pair", [introduction("X", "H"), introduction("X", "H")]);
+            const term = fact("pair", [introduction("X", "H"), introduction("X", "H")]);
 
             const result = bind_introductions(term, generator);
             const terms = (result as any).terms;
@@ -135,12 +135,12 @@ describe("Rewriting Engine", () => {
     // ==========================================
     describe("bind_vars", () => {
         it("should replace variables with sub map values", () => {
-            const term = template("point", [variable("x")]);
+            const term = fact("point", [variable("x")]);
             const sub = { "x": atom("A") };
 
             const result = bind_vars(term, sub);
             if (!result.data) throw new Error("bind_vars failed");
-            expect(equal_term(result.data.result, template("point", [atom("A")]))).toBeTrue();
+            expect(equal_term(result.data.result, fact("point", [atom("A")]))).toBeTrue();
         });
 
         it("should ignore missing variables", () => {
@@ -153,23 +153,23 @@ describe("Rewriting Engine", () => {
 
         it("should handle recursive substitution", () => {
             // equal(sum(x, y), z)
-            const term = template("equal", [
-                template("sum", [variable("x"), variable("y")]),
+            const term = fact("equal", [
+                fact("sum", [variable("x"), variable("y")]),
                 variable("z")
             ]);
 
             const sub = {
                 "x": atom("1"),
                 "y": atom("2"),
-                "z": template("sum", [atom("1"), atom("2")])
+                "z": fact("sum", [atom("1"), atom("2")])
             };
 
             const result = bind_vars(term, sub);
 
             // Expected: equal(sum(1, 2), sum(1, 2))
-            const expected = template("equal", [
-                template("sum", [atom("1"), atom("2")]),
-                template("sum", [atom("1"), atom("2")])
+            const expected = fact("equal", [
+                fact("sum", [atom("1"), atom("2")]),
+                fact("sum", [atom("1"), atom("2")])
             ]);
 
             if (!result.data) throw new Error("bind_vars failed");
@@ -191,19 +191,19 @@ describe("Rewriting Engine", () => {
         });
 
         it("should match a variable to a template (structural binding)", () => {
-            const pattern = template("foo", [variable("x")]);
-            const bounded = template("foo", [template("bar", [atom("A")])]);
+            const pattern = fact("foo", [variable("x")]);
+            const bounded = fact("foo", [fact("bar", [atom("A")])]);
 
             const res = match(pattern, bounded);
             expect(res.error).toBeUndefined();
             if (!res.data) throw new Error("match failed");
             if (!res.data.sub["x"]) throw new Error("match missing substitution for x");
-            expect(equal_term(res.data.sub["x"], template("bar", [atom("A")]))).toBeTrue();
+            expect(equal_term(res.data.sub["x"], fact("bar", [atom("A")]))).toBeTrue();
         });
 
         it("should fail on atom mismatch", () => {
-            const pattern = template("point", [atom("A")]);
-            const bounded = template("point", [atom("B")]);
+            const pattern = fact("point", [atom("A")]);
+            const bounded = fact("point", [atom("B")]);
 
             const res = match(pattern, bounded);
             expect(res.error).toBeDefined();
@@ -211,8 +211,8 @@ describe("Rewriting Engine", () => {
         });
 
         it("should fail on arity mismatch", () => {
-            const pattern = template("point", [variable("x")]);
-            const bounded = template("point", [atom("A"), atom("B")]);
+            const pattern = fact("point", [variable("x")]);
+            const bounded = fact("point", [atom("A"), atom("B")]);
 
             const res = match(pattern, bounded);
             expect(res.error!.code).toBe("ARITY_MISMATCH");
@@ -221,8 +221,8 @@ describe("Rewriting Engine", () => {
         it("should fail on substitution conflict", () => {
             // Pattern: equal(x, x)
             // Bounded: equal(A, B) -> conflict, x cannot be A and B
-            const pattern = template("equal", [variable("x"), variable("x")]);
-            const bounded = template("equal", [atom("A"), atom("B")]);
+            const pattern = fact("equal", [variable("x"), variable("x")]);
+            const bounded = fact("equal", [atom("A"), atom("B")]);
 
             const res = match(pattern, bounded);
             expect(res.error).toBeDefined();
@@ -232,8 +232,8 @@ describe("Rewriting Engine", () => {
         it("should succeed on consistent substitution", () => {
             // Pattern: equal(x, x)
             // Bounded: equal(A, A)
-            const pattern = template("equal", [variable("x"), variable("x")]);
-            const bounded = template("equal", [atom("A"), atom("A")]);
+            const pattern = fact("equal", [variable("x"), variable("x")]);
+            const bounded = fact("equal", [atom("A"), atom("A")]);
 
             const res = match(pattern, bounded);
             expect(res.error).toBeUndefined();
@@ -256,9 +256,9 @@ describe("Rewriting Engine", () => {
             // segment(A, B) => point(A), point(B)
             // All variables in RHS (A, B) exist in LHS
             const r = rule(
-                template("segment", [variable("A"), variable("B")]),
-                template("point", [variable("A")]),
-                template("point", [variable("B")])
+                fact("segment", [variable("A"), variable("B")]),
+                fact("point", [variable("A")]),
+                fact("point", [variable("B")])
             );
             const res = validate_rule(r);
             expect(res.data).toBeDefined();
@@ -269,8 +269,8 @@ describe("Rewriting Engine", () => {
         it("should validate a rule with intros", () => {
             // segment(A, B) => segment(B, !C)
             const r = rule(
-                template("segment", [variable("A"), variable("B")]),
-                template("segment", [variable("B"), introduction("C", "C")])
+                fact("segment", [variable("A"), variable("B")]),
+                fact("segment", [variable("B"), introduction("C", "C")])
             );
             const res = validate_rule(r);
             expect(res.data).toBeDefined();
@@ -279,9 +279,9 @@ describe("Rewriting Engine", () => {
         it("should fail if *any* RHS term has a variable not in LHS", () => {
             // point(A) => point(A), line(A, B)  <-- B is unknown in the second RHS term
             const r = rule(
-                template("point", [variable("A")]),
-                template("point", [variable("A")]),
-                template("line", [variable("A"), variable("B")])
+                fact("point", [variable("A")]),
+                fact("point", [variable("A")]),
+                fact("line", [variable("A"), variable("B")])
             );
 
             const res = validate_rule(r);
@@ -290,7 +290,7 @@ describe("Rewriting Engine", () => {
         });
 
         it("should fail if op is not rule", () => {
-            const notRule = template("not_rule", []);
+            const notRule = fact("not_rule", []);
             // Force cast to Rule to test runtime check
             const res = validate_rule(notRule as any);
             expect(res.error!.code).toBe("NOT_A_RULE");
@@ -298,7 +298,7 @@ describe("Rewriting Engine", () => {
 
         it("should fail if rule has no RHS", () => {
             // rule(LHS) - invalid arity
-            const r = template("rule", [atom("A")]);
+            const r = fact("rule", [atom("A")]);
             const res = validate_rule(r as any);
             expect(res.error!.code).toBe("INVALID_RULE_ARITY");
         });

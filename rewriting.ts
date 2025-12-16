@@ -2,22 +2,22 @@
 // TYPES
 // ==========================================
 
-export type Op = { type: "op", symbol: string };
+export type Constructor = { type: "constructor", symbol: string };
 export type Atom = { type: "atom", symbol: string };
 export type Variable = { type: "var", symbol: string };
 export type Introduction = { type: "introduction", symbol: string, hint: string };
 
 // Recursive Term Definition
-export type Term = Atom | Variable | Introduction | Template;
+export type Term = Atom | Variable | Introduction | Fact;
 
-export interface Template {
-    type: 'template';
-    op: Op;
+export interface Fact {
+    type: "fact";
+    op: Constructor;
     terms: Term[];
 }
 
-// A Rule is just a specialized Template: template("rule", [lhs, rhs1, rhs2...])
-export type Rule = Template;
+// A Rule is just a specialized Fact: fact("rule", [lhs, rhs1, rhs2...])
+export type Rule = Fact;
 
 // Substitution Map: Maps variable names to Terms
 export type Sub = {
@@ -37,17 +37,17 @@ export const atom = (symbol: string): Atom => ({ type: "atom", symbol });
 export const variable = (symbol: string): Variable => ({ type: "var", symbol });
 export const introduction = (symbol: string, hint: string): Introduction => ({ type: "introduction", symbol, hint });
 
-// Generic Template Constructor
-export const template = (opSymbol: string, terms: Term[]): Template => ({
-    type: 'template',
-    op: { type: "op", symbol: opSymbol },
+// Generic Fact Constructor
+export const fact = (opSymbol: string, terms: Term[]): Fact => ({
+    type: "fact",
+    op: { type: "constructor", symbol: opSymbol },
     terms
 });
 
 export const make_rule = (lhs: Term, rhs0: Term, ...rhs: Term[]): Rule => {
     return {
-        type: 'template',
-        op: { type: "op", symbol: "rule" },
+        type: "fact",
+        op: { type: "constructor", symbol: "rule" },
         terms: [lhs, rhs0, ...rhs]
     }
 }
@@ -56,8 +56,8 @@ export const make_rule = (lhs: Term, rhs0: Term, ...rhs: Term[]): Rule => {
 // Accepts 1 LHS, and ANY number of RHS terms (implicit AND). These RHS are dependent (for example, there is a point AND this point is the midpoint AND ...)
 // Usage: rule(LHS, RHS_1, RHS_2, RHS_3)
 export const rule = (lhs: Term, ...rhs: Term[]): Rule => ({
-    type: 'template',
-    op: { type: "op", symbol: "rule" },
+    type: "fact",
+    op: { type: "constructor", symbol: "rule" },
     terms: [lhs, ...rhs]
 });
 
@@ -73,8 +73,8 @@ export function equal_term(a: Term, b: Term): boolean {
     if (a.type === 'var') return a.symbol === (b as Variable).symbol;
     if (a.type === 'introduction') return a.symbol === (b as Introduction).symbol;
 
-    if (a.type === 'template') {
-        const tB = b as Template;
+    if (a.type === "fact") {
+        const tB = b as Fact;
         if (a.op.symbol !== tB.op.symbol) return false;
         if (a.terms.length !== tB.terms.length) return false;
         for (let i = 0; i < a.terms.length; i++) {
@@ -88,7 +88,7 @@ export function equal_term(a: Term, b: Term): boolean {
 export function somewhere_equal(small: Term, big: Term): boolean {
     if (equal_term(small, big)) return true;
 
-    if (big.type === 'template') {
+    if (big.type === "fact") {
         for (const t of big.terms) {
             if (somewhere_equal(small, t)) return true;
         }
@@ -101,7 +101,7 @@ export function somewhere_equal(small: Term, big: Term): boolean {
 export function all_atoms(term: Term): boolean {
     if (term.type === 'atom') return true;
     if (term.type === 'var' || term.type === 'introduction') return false;
-    if (term.type === 'template') {
+    if (term.type === "fact") {
         return term.terms.every(all_atoms);
     }
     return true;
@@ -110,7 +110,7 @@ export function all_atoms(term: Term): boolean {
 export function all_atoms_or_introductions(term: Term): boolean {
     if (term.type === 'atom' || term.type === 'introduction') return true;
     if (term.type === 'var') return false;
-    if (term.type === 'template') {
+    if (term.type === "fact") {
         return term.terms.every(all_atoms_or_introductions);
     }
     return true;
@@ -132,7 +132,7 @@ export function bind_introductions(
         }
     }
 
-    if (term.type === 'template') {
+    if (term.type === "fact") {
         return {
             ...term,
             terms: term.terms.map(t => bind_introductions(t, introduce, sub))
@@ -167,7 +167,7 @@ export function bind_vars(term: Term, sub: Sub): Result<{
         }
     }
 
-    if (term.type === 'template') {
+    if (term.type === "fact") {
         let combinedBoundVars = new Set<string>();
         const newTerms: Term[] = [];
 
@@ -217,9 +217,9 @@ export function match(pattern: Term, bounded: Term): Result<{ sub: Sub }> {
         return { data: { sub: {} } };
     }
 
-    // C. Match Template
-    if (pattern.type === 'template') {
-        if (bounded.type !== 'template') return { error: { code: "TYPE_MISMATCH" } };
+    // C. Match Fact
+    if (pattern.type === "fact") {
+        if (bounded.type !== "fact") return { error: { code: "TYPE_MISMATCH" } };
         if (pattern.op.symbol !== bounded.op.symbol) return { error: { code: "OP_MISMATCH" } };
         if (pattern.terms.length !== bounded.terms.length) return { error: { code: "ARITY_MISMATCH" } };
 
@@ -277,7 +277,7 @@ export function validate_rule(ruleTerm: Rule): Result<{ vars: Set<string> }> {
 
     const collect = (t: Term, set: Set<string>) => {
         if (t.type === 'var') set.add(t.symbol);
-        if (t.type === 'template') t.terms.forEach(child => collect(child, set));
+        if (t.type === "fact") t.terms.forEach(child => collect(child, set));
     };
 
     collect(lhs, lhsVars);

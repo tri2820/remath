@@ -1,4 +1,4 @@
-import { all_atoms, all_atoms_or_introductions, bind_introductions, bind_vars, match, equal_term, type Atom, type Introduction, type Result, type Rule, type Sub, type Template, type Term, somewhere_equal } from "./rewriting";
+import { all_atoms, all_atoms_or_introductions, bind_introductions, bind_vars, match, equal_term, type Atom, type Introduction, type Result, type Rule, type Sub, type Fact, type Term, somewhere_equal } from "./rewriting";
 
 
 type PatternMatch = {
@@ -53,7 +53,7 @@ export class World {
             // new_facts.push(instantiated_rule);
 
             // Special case for rule
-            if (instantiated_rule.type == 'template' && instantiated_rule.op.symbol === 'rule') {
+            if (instantiated_rule.type == "fact" && instantiated_rule.op.symbol === 'rule') {
                 // LHS and RHS
                 // const lhs = instantiated_rule.terms[0];
                 const rhs_terms = instantiated_rule.terms.slice(1);
@@ -67,7 +67,7 @@ export class World {
             // partial binding, always the first one
             new_facts.push(var_bounded_rule);
 
-            if (var_bounded_rule.type == 'template' && var_bounded_rule.op.symbol === 'rule') {
+            if (var_bounded_rule.type == "fact" && var_bounded_rule.op.symbol === 'rule') {
                 // If LHS is fully bound, we can also add RHS
 
                 const lhs = var_bounded_rule.terms[0];

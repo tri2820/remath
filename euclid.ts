@@ -1,4 +1,4 @@
-import { rule, template, variable, introduction, atom } from './rewriting';
+import { rule, fact, variable, introduction, atom } from './rewriting';
 
 // ==========================================
 // 1. THE EXPLICIT POSTULATES (The Text)
@@ -7,53 +7,53 @@ import { rule, template, variable, introduction, atom } from './rewriting';
 // Postulate 1: "To draw a straight line from any point to any point."
 // Interaction: User clicks Point A -> User clicks Point B -> Result.
 export const postulate1 = rule(
-    template("point", [variable("a")]),
+    fact("point", [variable("a")]),
     rule(
-        template("point", [variable("b")]),
+        fact("point", [variable("b")]),
         // RHS:
-        template("segment", [variable("a"), variable("b")]),
+        fact("segment", [variable("a"), variable("b")]),
         // Implicit knowledge Euclid assumes: a and b are now connected
-        template("connected", [variable("a"), variable("b")])
+        fact("connected", [variable("a"), variable("b")])
     )
 );
 
 // Postulate 2: "To produce a finite straight line continuously in a straight line."
 // FLAW: Euclid assumes "straight" means "collinear" without defining it.
 export const postulate2 = rule(
-    template("segment", [variable("a"), variable("b")]),
+    fact("segment", [variable("a"), variable("b")]),
     // RHS: We create a new point c
     // We explicitly assert 'collinear' here, which Euclid assumes implicitly
-    template("segment", [variable("b"), introduction("c", "c")]),
-    template("collinear", [variable("a"), variable("b"), introduction("c", "c")])
+    fact("segment", [variable("b"), introduction("c", "c")]),
+    fact("collinear", [variable("a"), variable("b"), introduction("c", "c")])
 );
 
 // Postulate 3: "To describe a circle with any center and distance."
 export const postulate3 = rule(
-    template("segment", [variable("o"), variable("a")]),
+    fact("segment", [variable("o"), variable("a")]),
     // RHS:
-    template("circle", [variable("o"), variable("a")]),
+    fact("circle", [variable("o"), variable("a")]),
     // Implicit: The point a is definitely on this circle
-    template("on_circle", [variable("a"), variable("o"), variable("a")])
+    fact("on_circle", [variable("a"), variable("o"), variable("a")])
 );
 
 // Postulate 4: "That all right angles are equal to one another."
 export const postulate4 = rule(
-    template("right_angle", [variable("a"), variable("b"), variable("c")]),
+    fact("right_angle", [variable("a"), variable("b"), variable("c")]),
     rule(
-        template("right_angle", [variable("d"), variable("e"), variable("f")]),
-        template("equal", [
-            template("angle", [variable("a"), variable("b"), variable("c")]),
-            template("angle", [variable("d"), variable("e"), variable("f")])
+        fact("right_angle", [variable("d"), variable("e"), variable("f")]),
+        fact("equal", [
+            fact("angle", [variable("a"), variable("b"), variable("c")]),
+            fact("angle", [variable("d"), variable("e"), variable("f")])
         ])
     )
 );
 
 // Postulate 5: (Playfair's Version for simplicity)
 export const postulate5 = rule(
-    template("line", [variable("a"), variable("b")]),
+    fact("line", [variable("a"), variable("b")]),
     rule(
-        template("point", [variable("p")]),
-        template("parallel_line", [variable("p"), variable("a"), variable("b"), introduction("q", "Q")])
+        fact("point", [variable("p")]),
+        fact("parallel_line", [variable("p"), variable("a"), variable("b"), introduction("q", "Q")])
     )
 );
 
@@ -68,18 +68,18 @@ export const postulate5 = rule(
 
 export const playfairUniqueness = rule(
     // PREMISE: Two parallel constructions exist from the same point p relative to ab
-    template("parallel_line", [variable("p"), variable("a"), variable("b"), variable("q1")]),
+    fact("parallel_line", [variable("p"), variable("a"), variable("b"), variable("q1")]),
     rule(
-        template("parallel_line", [variable("p"), variable("a"), variable("b"), variable("q2")]),
+        fact("parallel_line", [variable("p"), variable("a"), variable("b"), variable("q2")]),
 
         // CONSEQUENCE: They are equal (The lines coincide)
-        template("equal", [
-            template("line", [variable("p"), variable("q1")]),
-            template("line", [variable("p"), variable("q2")])
+        fact("equal", [
+            fact("line", [variable("p"), variable("q1")]),
+            fact("line", [variable("p"), variable("q2")])
         ]),
 
         // CONSEQUENCE: The defining points are collinear
-        template("collinear", [variable("p"), variable("q1"), variable("q2")])
+        fact("collinear", [variable("p"), variable("q1"), variable("q2")])
     )
 );
 
@@ -89,22 +89,22 @@ export const playfairUniqueness = rule(
 
 // Common Notion 1: Transitivity
 export const commonNotion1 = rule(
-    template("equal", [variable("a"), variable("b")]),
+    fact("equal", [variable("a"), variable("b")]),
     rule(
-        template("equal", [variable("b"), variable("c")]),
-        template("equal", [variable("a"), variable("c")])
+        fact("equal", [variable("b"), variable("c")]),
+        fact("equal", [variable("a"), variable("c")])
     )
 );
 
 // Common Notion 2: Addition
-// Uses generic "sum" template
+// Uses generic "sum" constructor
 export const commonNotion2 = rule(
-    template("equal", [variable("a"), variable("b")]),
+    fact("equal", [variable("a"), variable("b")]),
     rule(
-        template("equal", [variable("c"), variable("d")]),
-        template("equal", [
-            template("sum", [variable("a"), variable("c")]),
-            template("sum", [variable("b"), variable("d")])
+        fact("equal", [variable("c"), variable("d")]),
+        fact("equal", [
+            fact("sum", [variable("a"), variable("c")]),
+            fact("sum", [variable("b"), variable("d")])
         ])
     )
 );
@@ -113,22 +113,22 @@ export const commonNotion2 = rule(
 // "Things which coincide with one another equal one another."
 // Teachable Moment: This implies we can move shapes around to check equality.
 export const commonNotion4 = rule(
-    template("coincides", [variable("a"), variable("b")]),
-    template("equal", [variable("a"), variable("b")])
+    fact("coincides", [variable("a"), variable("b")]),
+    fact("equal", [variable("a"), variable("b")])
 );
 
 // Common Notion 3: Subtraction
 // "If equals be subtracted from equals, the remainders are equal."
 // Formula: If A = B and C = D, then (A - C) = (B - D)
 export const commonNotion3 = rule(
-    template("equal", [variable("a"), variable("b")]), // The Wholes (Minuends)
+    fact("equal", [variable("a"), variable("b")]), // The Wholes (Minuends)
     rule(
-        template("equal", [variable("c"), variable("d")]), // The Parts (Subtrahends)
+        fact("equal", [variable("c"), variable("d")]), // The Parts (Subtrahends)
 
         // RHS: The difference between a and c is equal to the difference between b and d
-        template("equal", [
-            template("diff", [variable("a"), variable("c")]),
-            template("diff", [variable("b"), variable("d")])
+        fact("equal", [
+            fact("diff", [variable("a"), variable("c")]),
+            fact("diff", [variable("b"), variable("d")])
         ])
     )
 );
@@ -144,31 +144,31 @@ export const commonNotion3 = rule(
 // Euclid assumes if circles look like they cross, they do.
 // He never proves they actually meet. 
 export const circleIntersection = rule(
-    template("circle", [variable("o1"), variable("r1")]),
+    fact("circle", [variable("o1"), variable("r1")]),
     rule(
-        template("circle", [variable("o2"), variable("r2")]),
+        fact("circle", [variable("o2"), variable("r2")]),
         // RHS: We introduce a SET of points to handle the "OR" logic safely
-        template("intersection_set", [
+        fact("intersection_set", [
             variable("o1"), variable("r1"),
             variable("o2"), variable("r2"),
             introduction("s", "S")
         ]),
         // We assert there are points in this set
-        template("in_set", [introduction("p_left", "P"), introduction("s", "S")]),
-        template("in_set", [introduction("p_right", "P"), introduction("s", "S")])
+        fact("in_set", [introduction("p_left", "P"), introduction("s", "S")]),
+        fact("in_set", [introduction("p_right", "P"), introduction("s", "S")])
     )
 );
 
 // HIDDEN RULE: Point on Circle implies Equal Radius (Definition 15)
 // This technically isn't a flaw, but a Definition used as a Rule.
 export const radiiEqual = rule(
-    template("circle", [variable("o"), variable("a")]),
+    fact("circle", [variable("o"), variable("a")]),
     rule(
-        template("on_circle", [variable("b"), variable("o"), variable("a")]),
+        fact("on_circle", [variable("b"), variable("o"), variable("a")]),
         // RHS: The distance to the new point b is equal to the radius oa
-        template("equal", [
-            template("segment", [variable("o"), variable("a")]),
-            template("segment", [variable("o"), variable("b")])
+        fact("equal", [
+            fact("segment", [variable("o"), variable("a")]),
+            fact("segment", [variable("o"), variable("b")])
         ])
     )
 );
@@ -177,16 +177,16 @@ export const radiiEqual = rule(
 // Euclid often assumes points are between others just by looking.
 // This rule formalizes the flaw: "If we have A-B and B-C, we assume A-B-C is a line"
 export const visualSegmentAddition = rule(
-    template("segment", [variable("a"), variable("b")]),
+    fact("segment", [variable("a"), variable("b")]),
     rule(
-        template("segment", [variable("b"), variable("c")]),
+        fact("segment", [variable("b"), variable("c")]),
         // RHS: We assert the whole exists and is the sum of parts
-        template("segment", [variable("a"), variable("c")]),
-        template("equal", [
-            template("segment", [variable("a"), variable("c")]),
-            template("sum", [
-                template("segment", [variable("a"), variable("b")]),
-                template("segment", [variable("b"), variable("c")])
+        fact("segment", [variable("a"), variable("c")]),
+        fact("equal", [
+            fact("segment", [variable("a"), variable("c")]),
+            fact("sum", [
+                fact("segment", [variable("a"), variable("b")]),
+                fact("segment", [variable("b"), variable("c")])
             ])
         ])
     )
@@ -195,17 +195,17 @@ export const visualSegmentAddition = rule(
 // HIDDEN RULE: Visual Segment Subtraction
 // Euclid assumes if C is between A and B, then AC = AB - CB
 export const visualSegmentSubtraction = rule(
-    template("segment", [variable("a"), variable("b")]), // Whole
+    fact("segment", [variable("a"), variable("b")]), // Whole
     rule(
-        template("segment", [variable("c"), variable("b")]), // Part (at one end)
+        fact("segment", [variable("c"), variable("b")]), // Part (at one end)
 
         // RHS: The remainder (ac) exists and equals Whole - Part
-        template("segment", [variable("a"), variable("c")]),
-        template("equal", [
-            template("segment", [variable("a"), variable("c")]),
-            template("diff", [
-                template("segment", [variable("a"), variable("b")]),
-                template("segment", [variable("c"), variable("b")])
+        fact("segment", [variable("a"), variable("c")]),
+        fact("equal", [
+            fact("segment", [variable("a"), variable("c")]),
+            fact("diff", [
+                fact("segment", [variable("a"), variable("b")]),
+                fact("segment", [variable("c"), variable("b")])
             ])
         ])
     )
@@ -214,8 +214,8 @@ export const visualSegmentSubtraction = rule(
 // HIDDEN RULE: Equality is Symmetric
 // If we know A = B, then we also know B = A.
 export const equalitySymmetric = rule(
-    template("equal", [variable("a"), variable("b")]),
-    template("equal", [variable("b"), variable("a")])
+    fact("equal", [variable("a"), variable("b")]),
+    fact("equal", [variable("b"), variable("a")])
 );
 
 // HIDDEN RULE: Segment Symmetry
@@ -223,15 +223,15 @@ export const equalitySymmetric = rule(
 // Necessary because the computer sees segment(a,b) and segment(b,a) as different data.
 export const segmentSymmetry = rule(
     // LHS: Condition
-    template("segment", [variable("a"), variable("b")]),
+    fact("segment", [variable("a"), variable("b")]),
 
     // RHS 1: Implicitly create the reverse segment in the database
-    template("segment", [variable("b"), variable("a")]),
+    fact("segment", [variable("b"), variable("a")]),
 
     // RHS 2: Declare them equal
-    template("equal", [
-        template("segment", [variable("a"), variable("b")]),
-        template("segment", [variable("b"), variable("a")])
+    fact("equal", [
+        fact("segment", [variable("a"), variable("b")]),
+        fact("segment", [variable("b"), variable("a")])
     ])
 );
 
