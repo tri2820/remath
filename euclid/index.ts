@@ -1,4 +1,4 @@
-import { rule, fact, variable, introduction, atom } from './rewriting';
+import { rule, fact, variable, introduction, atom } from '../rewriting';
 
 // ==========================================
 // 1. THE EXPLICIT POSTULATES (The Text)

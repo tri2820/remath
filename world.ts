@@ -1,12 +1,12 @@
 import { all_atoms, all_atoms_or_introductions, bind_introductions, bind_vars, match, equal_term, type Atom, type Introduction, type Result, type Rule, type Sub, type Fact, type Term, somewhere_equal } from "./rewriting";
 
 
-type PatternMatch = {
+type Substitution = {
     // This helps pin-pointing the location of where to match the fact
     // could replace by an "id" also
     // But I like hos this treats all locations (appearances) equally
-    template: Term,
-    fact: Term
+    pattern: Term,
+    with: Term
 }
 
 export class World {
@@ -31,7 +31,7 @@ export class World {
         return this.facts.some(f => equal_term(f, pattern));
     }
 
-    private _apply(rule: Rule, inputMap: Sub): Result<{
+    private substituteVar(rule: Rule, inputMap: Sub): Result<{
         new_facts: Term[]
     }> {
 
@@ -116,9 +116,9 @@ export class World {
         };
     }
 
-    apply(rule: Rule, patterns: PatternMatch[]) {
-        const all_ok = patterns.every(p => {
-            return this.has(p.fact);
+    substitute(rule: Rule, substitutions: Substitution[]) {
+        const all_ok = substitutions.every(p => {
+            return this.has(p.with);
         })
 
         if (!all_ok) {
@@ -133,11 +133,11 @@ export class World {
         // check that he fact satisfies the term
         const inputMap: Sub = {};
 
-        for (const p of patterns) {
+        for (const p of substitutions) {
 
             // Need to make sure that p.template exists in rule
             // Aka, tying the shape of the template to that of the rule
-            const contained = somewhere_equal(p.template, rule);
+            const contained = somewhere_equal(p.pattern, rule);
             if (!contained) {
                 // console.warn("Template not found in rule:", JSON.stringify(p.template, null, 2), JSON.stringify(rule, null, 2));
                 return {
@@ -148,7 +148,7 @@ export class World {
                 };
             }
 
-            const sub = match(p.template, p.fact);
+            const sub = match(p.pattern, p.with);
             if (sub.error) {
                 return {
                     error: sub.error
@@ -174,7 +174,7 @@ export class World {
 
         // console.log("inputMap:", JSON.stringify(inputMap, null, 2));
 
-        return this._apply(rule, inputMap);
+        return this.substituteVar(rule, inputMap);
     }
 
     // Arrow function to capture 'this' context automatically

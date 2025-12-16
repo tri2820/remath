@@ -19,7 +19,7 @@ describe("Rewriting Engine", () => {
         const w = new World();
         // This rule means: x -> x
         const id = make_rule(x_0, x_1)
-        const res = w.apply(id, [{ template: x_0, fact: pA }])
+        const res = w.substitute(id, [{ pattern: x_0, with: pA }])
         expect(res.error?.code).toEqual("INPUT_NOT_FOUND");
     });
 
@@ -40,7 +40,7 @@ describe("Rewriting Engine", () => {
         const id = make_rule(x_0, x_1)
         w.add(pA);
         // This means: replacing variable x with pA
-        const res = w.apply(id, [{ template: x_0, fact: pA }])
+        const res = w.substitute(id, [{ pattern: x_0, with: pA }])
         expect(res.data?.new_facts.length).toEqual(1);
         expect(res.data?.new_facts[0]).toEqual(pA);
     });
@@ -58,7 +58,7 @@ describe("Rewriting Engine", () => {
         // This rule means: x -> x
         const id = make_rule(x_0, x_0)
         w.add(pA);
-        const res = w.apply(id, [{ template: x_0, fact: pA }])
+        const res = w.substitute(id, [{ pattern: x_0, with: pA }])
         expect(res.data?.new_facts.length).toEqual(1);
         expect(res.data?.new_facts[0]).toEqual(pA);
     });
@@ -77,7 +77,7 @@ describe("Rewriting Engine", () => {
         // This rule means: x -> (x -> x)
         const cid = make_rule(x_0, make_rule(x_0, x_0))
         w.add(pA);
-        const res = w.apply(cid, [{ template: x_0, fact: pA }])
+        const res = w.substitute(cid, [{ pattern: x_0, with: pA }])
         expect(res.data?.new_facts.length).toEqual(1);
         // A -> A
         expect(res.data?.new_facts[0]).toEqual(make_rule(pA, pA));
@@ -98,9 +98,9 @@ describe("Rewriting Engine", () => {
 
         const AtoA = make_rule(pA, pA)
         w.add(AtoA);
-        const res = w.apply(cid, [{
-            template: make_rule(x_0, x_0),
-            fact: AtoA
+        const res = w.substitute(cid, [{
+            pattern: make_rule(x_0, x_0),
+            with: AtoA
         }])
 
         expect(res.data?.new_facts.length).toEqual(1);
@@ -135,10 +135,10 @@ describe("Rewriting Engine", () => {
         w.add(make_rule(pA, pB));
         // Intentionally add the wrong fact here
         w.add(make_rule(pC, pB));
-        const res = w.apply(trans, [
-            { template: make_rule(x_0, y_0), fact: make_rule(pA, pB) },
+        const res = w.substitute(trans, [
+            { pattern: make_rule(x_0, y_0), with: make_rule(pA, pB) },
             // Obvious here pB -> pC, but we intentionnally mistype
-            { template: make_rule(y_0, z_0), fact: make_rule(pC, pB) }
+            { pattern: make_rule(y_0, z_0), with: make_rule(pC, pB) }
         ])
         expect(res.error?.code).toEqual("SUBSTITUTION_CONFLICT");
     });
@@ -166,8 +166,8 @@ describe("Rewriting Engine", () => {
         // This rule means: (x -> y) -> ((y -> z) -> (x -> z))
         const trans = make_rule(make_rule(x_0, y_0), make_rule(make_rule(y_0, z_0), make_rule(x_0, z_0)))
         w.add(make_rule(pA, pB));
-        const res = w.apply(trans, [
-            { template: make_rule(x_0, y_0), fact: make_rule(pA, pB) }
+        const res = w.substitute(trans, [
+            { pattern: make_rule(x_0, y_0), with: make_rule(pA, pB) }
         ])
 
         // We expect that it's partial, and the behavior is returning only 1 partial there
@@ -214,8 +214,8 @@ describe("Rewriting Engine", () => {
         // So if we don't want to add pB -> pC, we can do it in 2 steps:
 
 
-        const res = w.apply(trans, [
-            { template: make_rule(x_0, y_0), fact: make_rule(pA, pB) },
+        const res = w.substitute(trans, [
+            { pattern: make_rule(x_0, y_0), with: make_rule(pA, pB) },
             // { template: make_rule(y_0, z_0), fact: make_rule(pB, pC) }
         ])
 
@@ -237,8 +237,8 @@ describe("Rewriting Engine", () => {
             throw new Error("Unexpected rule structure");
         }
 
-        const res2 = w.apply(rest, [
-            { template: make_rule(pB, z_0), fact: make_rule(pB, pC) }
+        const res2 = w.substitute(rest, [
+            { pattern: make_rule(pB, z_0), with: make_rule(pB, pC) }
         ])
 
         // Finally we get A -> C
@@ -280,8 +280,8 @@ describe("Rewriting Engine", () => {
         const rule = make_rule(x_0, y_0)
 
         // Try
-        const res = w.apply(rule, [
-            { template: temp, fact: instance }
+        const res = w.substitute(rule, [
+            { pattern: temp, with: instance }
         ])
 
         // Should fail because the input pattern does not exist in the rule
