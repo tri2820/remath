@@ -152,7 +152,7 @@ export class World {
         })
 
         if (invalid_pattern) {
-            console.warn("Fact not found in world facts:", JSON.stringify(invalid_pattern.with, null, 2));
+            // console.warn("Fact not found in world facts:", JSON.stringify(invalid_pattern.with, null, 2));
             return {
                 error: {
                     code: "FACT_NOT_FOUND_IN_WORLD_FACTS",

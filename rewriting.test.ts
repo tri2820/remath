@@ -110,7 +110,6 @@ describe("Rewriting Engine", () => {
 
             // Structure check
             expect((result as any).terms[1].type).toBe("atom");
-            console.log('result', JSON.stringify(result, null, 2));
             expect((result as any).terms[1].symbol).toBe("0");
         });
 
