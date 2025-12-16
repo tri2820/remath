@@ -109,13 +109,17 @@ export class World {
             }
         }
 
-
-        if (res.data.bound_vars.size == 0) {
-            // return empty, there was nothing bound
-            return {
-                data: []
-            };
-        }
+        // Commented this out
+        // Case: 
+        // rule: A -> B
+        // pattern: A, with: A
+        // Should forward and return B
+        // if (res.data.bound_vars.size == 0) {
+        //     // return empty, there was nothing bound
+        //     return {
+        //         data: []
+        //     };
+        // }
 
         // TODO: only upon new facts added to the World do we actually increase the counter
         // But for now, there is no harm in increasing it here also
@@ -148,11 +152,10 @@ export class World {
         })
 
         if (invalid_pattern) {
-            console.warn("Pattern not found in world facts:", JSON.stringify(invalid_pattern.with, null, 2));
+            console.warn("Fact not found in world facts:", JSON.stringify(invalid_pattern.with, null, 2));
             return {
                 error: {
-                    code: "PATTERN_NOT_FOUND",
-                    message: `One or more patterns could not be found in world facts.`
+                    code: "FACT_NOT_FOUND_IN_WORLD_FACTS",
                 }
             };
         }

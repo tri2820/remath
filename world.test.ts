@@ -1,10 +1,10 @@
 import { describe, it, expect } from "bun:test";
-import { atom, make_rule, fact, variable } from "./rewriting";
+import { atom, make_rule, fact, variable, rule } from "./rewriting";
 import { World } from "./world";
 
 
 describe("Rewriting Engine", () => {
-    it("Should fail when input mapping is missing", () => {
+    it("Should fail when try to substitute nonsense facts within world", () => {
         const a = atom("A");
         expect(a).toEqual({ type: "atom", symbol: "A" });
 
@@ -21,7 +21,7 @@ describe("Rewriting Engine", () => {
         const id = make_rule(x_0, x_1)
         w.add(id);
         const res = w.substitute(id, [{ pattern: x_0, with: pA }])
-        expect(res.error?.code).toEqual("PATTERN_NOT_FOUND");
+        expect(res.error?.code).toEqual("FACT_NOT_FOUND_IN_WORLD_FACTS");
     });
 
     it("Should apply rule correctly when input mapping is complete", () => {
@@ -93,7 +93,6 @@ describe("Rewriting Engine", () => {
         w.add(pA);
         const res = w.substitute(cid, [{ pattern: x_0, with: pA }])
 
-
         // 3 facts:
         // A -> (A -> A)
         // A -> A
@@ -124,28 +123,16 @@ describe("Rewriting Engine", () => {
             with: AtoA
         }])
 
-
-        expect(res.data?.length).toEqual(3);
-
-        // 3 facts:
+        // 2 facts:
         // (A -> A) -> (A -> A)
         // A -> A
-        // Interestingly, we also have A. 
-        // A
 
+        // Note here: We would not have A, because even though LHS is fully bound,
+        // we dont have A in the world facts yet.
 
-        // Note here: We have A based on decomposition of A -> A
-        // LHS there is fullfilled, so we can decompose it further
-        // The logic for it is: the ONLY way for the LHS to be fulfilled is that A exists in the world
-        // So it's okay to return RHS (currently only trivially A - something already exists as fact in the world, but definitely can be more complicated - something have yet be as fact in the world)
-
-        // If LHS (ingredients) does not exist in the world, user would have had no way to fulfill it.
-        // So basically, there is some smartness from the rewritting engine here: it found a way to fulfill LHS, accidentally from seemingly irrelevant substitution patterns
-        // given by the user.
-
+        expect(res.data?.length).toEqual(2);
         expect(res.data?.[0]).toEqual(make_rule(make_rule(pA, pA), make_rule(pA, pA)));
         expect(res.data?.[1]).toEqual(make_rule(pA, pA));
-        expect(res.data?.[2]).toEqual(pA);
     });
 
     it("Should error on conflicting substitutions", () => {
@@ -288,18 +275,47 @@ describe("Rewriting Engine", () => {
             { pattern: make_rule(pB, z_0), with: make_rule(pB, pC) }
         ])
 
+        if (res2.error) {
+            throw new Error(`Substitution failed: ${JSON.stringify(res2.error)}`);
+        }
+
         // Finally we get A -> C
-        // 3 facts:
+        // 2 facts:
         // (B -> C) -> (A -> C)
+        // A -> C
+        // Note: we would not have C because we don't have A in the world facts yet.
+
+        // Note: We could have also gotten (A -> B) -> ((B -> C) -> (A -> C)) by applying to ABBzAz instead.
+        expect(res2.data.length).toEqual(2);
+        expect(res2.data[0]).toEqual(make_rule(make_rule(pB, pC), make_rule(pA, pC)));
+        expect(res2.data[1]).toEqual(make_rule(pA, pC));
+
+        const ruleAtoC = res2.data[1]!;
+        w.add(ruleAtoC);
+
+        if (ruleAtoC.type !== "fact" || ruleAtoC.op.symbol !== 'rule') {
+            throw new Error("Unexpected rule structure");
+        }
+
+        // Suppose now we add A also
+        w.add(pA);
+
+        const res3 = w.substitute(ruleAtoC, [
+            { pattern: pA, with: pA }
+        ])
+
+        if (res3.error) {
+            throw new Error(`Substitution failed: ${JSON.stringify(res3.error)}`);
+        }
+
+        // Finally we get
+        // 2 facts:
         // A -> C
         // C
 
-        // Note: We could have also gotten (A -> B) -> ((B -> C) -> (A -> C)) by applying to ABBzAz instead.
-        expect(res2.data?.length).toEqual(3);
-        // expect(res2.data?.[0]).toEqual(make_rule(make_rule(pA, pB), make_rule(make_rule(pB, pC), make_rule(pA, pC))));
-        expect(res2.data?.[0]).toEqual(make_rule(make_rule(pB, pC), make_rule(pA, pC)));
-        expect(res2.data?.[1]).toEqual(make_rule(pA, pC));
-        expect(res2.data?.[2]).toEqual(pC);
+        expect(res3.data.length).toEqual(2);
+        expect(res3.data[0]).toEqual(make_rule(pA, pC));
+        expect(res3.data[1]).toEqual(pC);
     });
 
     it("Try a pattern that does not exist in rule", () => {

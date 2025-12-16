@@ -209,9 +209,6 @@ describe("Euclid prop 1: Construct equilateral triangle", () => {
         }
         world.addAll(res.data);
 
-        console.log('res.data', JSON.stringify(res.data, null, 2));
-
-
         expect(world.has(goal)).toBe(true);
     });
 
