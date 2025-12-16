@@ -19,6 +19,7 @@ describe("Rewriting Engine", () => {
         const w = new World();
         // This rule means: x -> x
         const id = make_rule(x_0, x_1)
+        w.add(id);
         const res = w.substitute(id, [{ pattern: x_0, with: pA }])
         expect(res.error?.code).toEqual("INPUT_NOT_FOUND");
     });
@@ -38,6 +39,7 @@ describe("Rewriting Engine", () => {
         const w = new World();
         // This rule means: x -> x
         const id = make_rule(x_0, x_1)
+        w.add(id);
         w.add(pA);
         // This means: replacing variable x with pA
         const res = w.substitute(id, [{ pattern: x_0, with: pA }])
@@ -62,6 +64,7 @@ describe("Rewriting Engine", () => {
         const w = new World();
         // This rule means: x -> x
         const id = make_rule(x_0, x_0)
+        w.add(id);
         w.add(pA);
         const res = w.substitute(id, [{ pattern: x_0, with: pA }])
 
@@ -86,6 +89,7 @@ describe("Rewriting Engine", () => {
         const w = new World();
         // This rule means: x -> (x -> x)
         const cid = make_rule(x_0, make_rule(x_0, x_0))
+        w.add(cid);
         w.add(pA);
         const res = w.substitute(cid, [{ pattern: x_0, with: pA }])
 
@@ -112,7 +116,7 @@ describe("Rewriting Engine", () => {
         const w = new World();
         // This rule means: (x -> x) -> (x -> x)
         const cid = make_rule(make_rule(x_0, x_0), make_rule(x_0, x_0))
-
+        w.add(cid);
         const AtoA = make_rule(pA, pA)
         w.add(AtoA);
         const res = w.substitute(cid, [{
@@ -120,8 +124,6 @@ describe("Rewriting Engine", () => {
             with: AtoA
         }])
 
-
-        console.log('OOJJ', JSON.stringify(res, null, 2));
 
         expect(res.data?.length).toEqual(3);
 
@@ -170,6 +172,7 @@ describe("Rewriting Engine", () => {
         const w = new World();
         // This rule means: (x -> y) -> ((y -> z) -> (x -> z))
         const trans = make_rule(make_rule(x_0, y_0), make_rule(make_rule(y_0, z_0), make_rule(x_0, z_0)))
+        w.add(trans)
         w.add(make_rule(pA, pB));
         // Intentionally add the wrong fact here
         w.add(make_rule(pC, pB));
@@ -203,6 +206,7 @@ describe("Rewriting Engine", () => {
         const w = new World();
         // This rule means: (x -> y) -> ((y -> z) -> (x -> z))
         const trans = make_rule(make_rule(x_0, y_0), make_rule(make_rule(y_0, z_0), make_rule(x_0, z_0)))
+        w.add(trans)
         w.add(make_rule(pA, pB));
         const res = w.substitute(trans, [
             { pattern: make_rule(x_0, y_0), with: make_rule(pA, pB) }
@@ -241,6 +245,7 @@ describe("Rewriting Engine", () => {
         const w = new World();
         // This rule means: (x -> y) -> ((y -> z) -> (x -> z))
         const trans = make_rule(make_rule(x_0, y_0), make_rule(make_rule(y_0, z_0), make_rule(x_0, z_0)))
+        w.add(trans)
         w.add(make_rule(pA, pB));
 
         // THIS IS WEIRD. THIS SHOULD BE COMMENTED OUT ABLE.
@@ -257,14 +262,18 @@ describe("Rewriting Engine", () => {
             // { template: make_rule(y_0, z_0), fact: make_rule(pB, pC) }
         ])
 
+        if (res.error) {
+            throw new Error(`Substitution failed: ${JSON.stringify(res.error)}`);
+        }
+
 
         // (A -> B) -> ((B -> z) -> (A -> z))
         // Also return below because LHS is fully bound
         // (B -> z) -> (A -> z)
-        expect(res.data?.length).toEqual(2);
-        expect(res.data?.[0]).toEqual(make_rule(make_rule(pA, pB), make_rule(make_rule(pB, z_0), make_rule(pA, z_0))));
-        expect(res.data?.[1]).toEqual(make_rule(make_rule(pB, z_0), make_rule(pA, z_0)));
-
+        expect(res.data.length).toEqual(2);
+        expect(res.data[0]).toEqual(make_rule(make_rule(pA, pB), make_rule(make_rule(pB, z_0), make_rule(pA, z_0))));
+        expect(res.data[1]).toEqual(make_rule(make_rule(pB, z_0), make_rule(pA, z_0)));
+        w.addAll(res.data!);
 
         // Supposed only later on that we have 
         w.add(make_rule(pB, pC));
@@ -286,8 +295,6 @@ describe("Rewriting Engine", () => {
         // C
 
         // Note: We could have also gotten (A -> B) -> ((B -> C) -> (A -> C)) by applying to ABBzAz instead.
-
-        console.log('FINAL RES2:', JSON.stringify(res2, null, 2));
         expect(res2.data?.length).toEqual(3);
         // expect(res2.data?.[0]).toEqual(make_rule(make_rule(pA, pB), make_rule(make_rule(pB, pC), make_rule(pA, pC))));
         expect(res2.data?.[0]).toEqual(make_rule(make_rule(pB, pC), make_rule(pA, pC)));
@@ -327,6 +334,8 @@ describe("Rewriting Engine", () => {
         // However, we want to satisfy this rule
         // x -> y
         const rule = make_rule(x_0, y_0)
+        w.add(rule);
+
 
         // Try
         const res = w.substitute(rule, [
@@ -366,6 +375,7 @@ describe("Rewriting Engine", () => {
         // substitute both x and y, this should give us both(A B)
         // x -> y -> both(x y)
         const rule = make_rule(x_0, make_rule(y_0, fact("both", [x_0, y_0])))
+        w.add(rule);
 
         const res = w.substitute(rule, [
             { pattern: x_0, with: pA },

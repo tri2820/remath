@@ -60,6 +60,8 @@ describe("To construct an equilateral triangle on a given finite straight line",
 
     beforeAll(() => {
         world = new World();
+        world.addAll(Object.values(euclideanAxioms.text));
+        world.addAll(Object.values(euclideanAxioms.hidden_assumptions));
     });
 
     it("create a world with 2 points", () => {
@@ -68,7 +70,6 @@ describe("To construct an equilateral triangle on a given finite straight line",
         world.add(pA);
         world.add(pB);
         expect(world).toBeDefined();
-        expect(world.facts.length).toBe(2);
         expect(world.has(pA)).toBe(true);
         expect(world.has(pB)).toBe(true)
     })
@@ -143,6 +144,30 @@ describe("To construct an equilateral triangle on a given finite straight line",
 
         world.addAll(res.data);
         expect(world.has(goal)).toBe(true);
+    })
+
+    it("find intersection point C of circles (A, B) and (B, A)", () => {
+        const circleAB = world.find(fact("circle", [atom("A"), atom("B")]))!;
+        const circleBA = world.find(fact("circle", [atom("B"), atom("A")]))!;
+        const goal_on_circle_A = fact("on_circle", [atom("C_1"), atom("A"), atom("B")]);
+        const goal_on_circle_B = fact("on_circle", [atom("C_1"), atom("B"), atom("A")]);
+
+        const res = world.substitute(euclideanAxioms.hidden_assumptions.circleIntersection, [
+            { pattern: euclideanAxioms.hidden_assumptions.circleIntersection.terms[0]!, with: circleAB },
+            { pattern: (euclideanAxioms.hidden_assumptions.circleIntersection.terms[1] as Rule).terms[0]!, with: circleBA },
+        ])
+
+        if (res.error) {
+            throw new Error(`Substitution failed: ${JSON.stringify(res.error)}`);
+        }
+
+
+        console.log('res.data', JSON.stringify(res.data, null, 2));
+        console.log('res.data.length', res.data.length);
+
+        world.addAll(res.data);
+        expect(world.has(goal_on_circle_A)).toBe(true);
+        expect(world.has(goal_on_circle_B)).toBe(true);
     })
 
 

@@ -12,8 +12,6 @@ export const postulate1 = rule(
         fact("point", [variable("b")]),
         // RHS:
         fact("segment", [variable("a"), variable("b")]),
-        // Implicit knowledge Euclid assumes: a and b are now connected
-        fact("connected", [variable("a"), variable("b")])
     )
 );
 
@@ -24,7 +22,8 @@ export const postulate2 = rule(
     // RHS: We create a new point c
     // We explicitly assert 'collinear' here, which Euclid assumes implicitly
     fact("segment", [variable("b"), introduction("c", "c")]),
-    fact("collinear", [variable("a"), variable("b"), introduction("c", "c")])
+    fact("point", [introduction("c", "c")]),
+    fact("collinear", [variable("a"), variable("b"), introduction("c", "c")]),
 );
 
 // Postulate 3: "To describe a circle with any center and distance."
@@ -53,6 +52,7 @@ export const postulate5 = rule(
     fact("line", [variable("a"), variable("b")]),
     rule(
         fact("point", [variable("p")]),
+        fact("point", [introduction("q", "Q")]),
         fact("parallel_line", [variable("p"), variable("a"), variable("b"), introduction("q", "Q")])
     )
 );
@@ -141,24 +141,20 @@ export const commonNotion3 = rule(
 // should get stuck until they unlock these "Hidden Rules".
 
 // HIDDEN RULE: Circle Intersection
-// Euclid assumes if circles look like they cross, they do.
-// He never proves they actually meet. 
+// Euclid assumes if two circles exist, they intersect at some point.
+// He never proves intersection points exist, just asserts "let C be where they meet"
 export const circleIntersection = rule(
-    fact("circle", [variable("o1"), variable("r1")]),
+    fact("circle", [variable("o1"), variable("a")]),
     rule(
-        fact("circle", [variable("o2"), variable("r2")]),
-        // RHS: We introduce a SET of points to handle the "OR" logic safely
-        fact("intersection_set", [
-            variable("o1"), variable("r1"),
-            variable("o2"), variable("r2"),
-            introduction("s", "S")
-        ]),
-        // We assert there are points in this set
-        fact("in_set", [introduction("p_left", "P"), introduction("s", "S")]),
-        fact("in_set", [introduction("p_right", "P"), introduction("s", "S")])
+        fact("circle", [variable("o2"), variable("b")]),
+        // RHS 1: First, assert the point exists
+        fact("point", [introduction("c", "C")]),
+        // RHS 2: Assert the point is on the first circle
+        fact("on_circle", [introduction("c", "C"), variable("o1"), variable("a")]),
+        // RHS 3: Assert the point is on the second circle
+        fact("on_circle", [introduction("c", "C"), variable("o2"), variable("b")])
     )
 );
-
 // HIDDEN RULE: Point on Circle implies Equal Radius (Definition 15)
 // This technically isn't a flaw, but a Definition used as a Rule.
 export const radiiEqual = rule(

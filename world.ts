@@ -125,7 +125,13 @@ export class World {
     }
 
     substitute(rule: Rule, substitutions: Substitution[]) {
-        // TODO: the rule should be part of the world also?
+        if (!this.has(rule)) return {
+            error: {
+                code: "RULE_NOT_IN_WORLD",
+                message: `The provided rule is not found in world facts.`
+            }
+        }
+
 
         const all_ok = substitutions.every(p => {
             return this.has(p.with);
