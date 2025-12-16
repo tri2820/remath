@@ -133,15 +133,16 @@ export class World {
         }
 
 
-        const all_ok = substitutions.every(p => {
-            return this.has(p.with);
+        const invalid_pattern = substitutions.find(p => {
+            return !this.has(p.with);
         })
 
-        if (!all_ok) {
+        if (invalid_pattern) {
+            console.warn("Pattern not found in world facts:", JSON.stringify(invalid_pattern.with, null, 2));
             return {
                 error: {
-                    code: "INPUT_NOT_FOUND",
-                    message: `One or more input patterns could not be found in world facts.`
+                    code: "PATTERN_NOT_FOUND",
+                    message: `One or more patterns could not be found in world facts.`
                 }
             };
         }

@@ -21,7 +21,7 @@ describe("Rewriting Engine", () => {
         const id = make_rule(x_0, x_1)
         w.add(id);
         const res = w.substitute(id, [{ pattern: x_0, with: pA }])
-        expect(res.error?.code).toEqual("INPUT_NOT_FOUND");
+        expect(res.error?.code).toEqual("PATTERN_NOT_FOUND");
     });
 
     it("Should apply rule correctly when input mapping is complete", () => {

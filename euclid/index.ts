@@ -132,52 +132,38 @@ export const commonNotion3 = rule(
         ])
     )
 );
-
 // ==========================================
 // 3. THE HIDDEN ASSUMPTIONS (The Flaws)
 // ==========================================
-// These are rules Euclid requires to prove Proposition 1, 
-// but he never wrote them down. In your game, the player 
-// should get stuck until they unlock these "Hidden Rules".
 
 // HIDDEN RULE: Circle Intersection
 // Euclid assumes if two circles exist, they intersect at some point.
-// He never proves intersection points exist, just asserts "let C be where they meet"
 export const circleIntersection = rule(
     fact("circle", [variable("o1"), variable("a")]),
     rule(
         fact("circle", [variable("o2"), variable("b")]),
-        // RHS 1: First, assert the point exists
         fact("point", [introduction("c")]),
-        // RHS 2: Assert the point is on the first circle
         fact("on_circle", [introduction("c"), variable("o1"), variable("a")]),
-        // RHS 3: Assert the point is on the second circle
         fact("on_circle", [introduction("c"), variable("o2"), variable("b")])
     )
 );
+
 // HIDDEN RULE: Point on Circle implies Equal Radius (Definition 15)
-// This technically isn't a flaw, but a Definition used as a Rule.
+// "All radii of a circle are equal"
 export const radiiEqual = rule(
-    fact("circle", [variable("o"), variable("a")]),
-    rule(
-        fact("on_circle", [variable("b"), variable("o"), variable("a")]),
-        // RHS: The distance to the new point b is equal to the radius oa
-        fact("equal", [
-            fact("segment", [variable("o"), variable("a")]),
-            fact("segment", [variable("o"), variable("b")])
-        ])
-    )
+    fact("on_circle", [variable("b"), variable("o"), variable("a")]),
+    fact("equal", [
+        fact("segment", [variable("o"), variable("a")]),
+        fact("segment", [variable("o"), variable("b")])
+    ])
 );
 
-// HIDDEN RULE: "Looking at the diagram" (Betweenness)
-// Euclid often assumes points are between others just by looking.
-// This rule formalizes the flaw: "If we have A-B and B-C, we assume A-B-C is a line"
+// HIDDEN RULE: Visual Segment Addition
+// "If we have A-B and B-C, we assume A-B-C is collinear"
 export const visualSegmentAddition = rule(
     fact("segment", [variable("a"), variable("b")]),
     rule(
         fact("segment", [variable("b"), variable("c")]),
-        // RHS: We assert the whole exists and is the sum of parts
-        fact("segment", [variable("a"), variable("c")]),
         fact("equal", [
             fact("segment", [variable("a"), variable("c")]),
             fact("sum", [
@@ -189,14 +175,11 @@ export const visualSegmentAddition = rule(
 );
 
 // HIDDEN RULE: Visual Segment Subtraction
-// Euclid assumes if C is between A and B, then AC = AB - CB
+// "If C is between A and B, then AC = AB - CB"
 export const visualSegmentSubtraction = rule(
-    fact("segment", [variable("a"), variable("b")]), // Whole
+    fact("segment", [variable("a"), variable("b")]),
     rule(
-        fact("segment", [variable("c"), variable("b")]), // Part (at one end)
-
-        // RHS: The remainder (ac) exists and equals Whole - Part
-        fact("segment", [variable("a"), variable("c")]),
+        fact("segment", [variable("c"), variable("b")]),
         fact("equal", [
             fact("segment", [variable("a"), variable("c")]),
             fact("diff", [
@@ -208,23 +191,15 @@ export const visualSegmentSubtraction = rule(
 );
 
 // HIDDEN RULE: Equality is Symmetric
-// If we know A = B, then we also know B = A.
 export const equalitySymmetric = rule(
     fact("equal", [variable("a"), variable("b")]),
     fact("equal", [variable("b"), variable("a")])
 );
 
 // HIDDEN RULE: Segment Symmetry
-// "The distance from A to B is the same as B to A"
-// Necessary because the computer sees segment(a,b) and segment(b,a) as different data.
 export const segmentSymmetry = rule(
-    // LHS: Condition
     fact("segment", [variable("a"), variable("b")]),
-
-    // RHS 1: Implicitly create the reverse segment in the database
     fact("segment", [variable("b"), variable("a")]),
-
-    // RHS 2: Declare them equal
     fact("equal", [
         fact("segment", [variable("a"), variable("b")]),
         fact("segment", [variable("b"), variable("a")])

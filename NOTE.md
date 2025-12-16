@@ -18,3 +18,9 @@ export const paschAxiom = rule(
     ])
 );
 ```
+
+# What would be useful
+
+- Automate apply some rules
+- class Proof with goal
+- tracking substitutions (rule usage) (example: Use 1.1 etc)

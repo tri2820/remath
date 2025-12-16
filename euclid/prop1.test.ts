@@ -1,60 +1,8 @@
-// =================================================================================================
-// PROPOSITION 1: To construct an equilateral triangle on a given finite straight line.
-// =================================================================================================
-//
-// Goal: Given a segment AB, construct a triangle ABC where AB = BC = CA.
-//
-// 1.  **GIVEN**: We start with two points, A and B.
-//     - The world contains: `fact("point", [A])` and `fact("point", [B])`.
-//
-// 2.  **STEP 1: Draw the base segment.**
-//     - Use Postulate 1 on points A and B.
-//     - This creates `fact("segment", [A, B])`.
-//
-// 3.  **STEP 2: Construct the first circle.**
-//     - Use Postulate 3 with center A and radius point B (using the segment from Step 1).
-//     - This creates `fact("circle", [A, B])`.
-//
-// 4.  **STEP 3: Construct the second circle.**
-//     - Use Postulate 3 with center B and radius point A.
-//         - Note: We need a `fact("segment", [B, A])`. The system needs a rule like `segmentSymmetry`
-//           that states if `segment(A,B)` exists, `segment(B,A)` also exists and they are equal.
-//     - This creates `fact("circle", [B, A])`.
-//
-// 5.  **STEP 4: Find the intersection.**
-//     - Now the world contains two circles. We need to find where they intersect.
-//     - This is a major gap in Euclid's logic. We need a "Hidden Rule" like `circleIntersection`.
-//     - This rule would take the two circles and introduce a new point, C, which lies on both.
-//     - This adds `fact("on_circle", [C, A, B])` and `fact("on_circle", [C, B, A])`.
-//
-// 6.  **STEP 5: Prove the sides are equal.**
-//     - **Side AC vs AB**:
-//         - We have `fact("on_circle", [C, A, B])`.
-//         - We need a rule that says "if a point is on a circle, its distance to the center is equal to the radius." This is the `radiiEqual` hidden rule.
-//         - Applying this rule gives `fact("equal", [fact("segment", [A, C]), fact("segment", [A, B])])`.
-//
-//     - **Side BC vs BA**:
-//         - We have `fact("on_circle", [C, B, A])`.
-//         - Applying the `radiiEqual` rule again gives `fact("equal", [fact("segment", [B, C]), fact("segment", [B, A])])`.
-//
-//     - **All three sides**:
-//         - We now have (AC = AB) and (BC = BA).
-//         - We also know from `segmentSymmetry` that AB = BA.
-//         - Using Common Notion 1 (Transitivity: if x=y and y=z, then x=z):
-//             - From (AC = AB) and (AB = BA), we get (AC = BA).
-//             - From (AC = BA) and (BA = BC) [using symmetry on the second equality], we get (AC = BC).
-//             - Therefore, AB = BC = AC.
-//
-// 7.  **CONCLUSION**: We have constructed `fact("segment", [A, C])` and `fact("segment", [B, C])`,
-//     and proven that all three segments (AB, BC, CA) are equal. The equilateral triangle is formed.
-//
-//
-
 import { describe, it, expect, beforeAll } from "bun:test";
 import { World } from "../world";
 import { atom, fact, variable, type Rule } from "../rewriting";
 import { euclideanAxioms } from ".";
-describe("To construct an equilateral triangle on a given finite straight line", () => {
+describe("Euclid prop 1: Construct equilateral triangle", () => {
     // Shared state across all steps
     let world: World;
 
@@ -109,15 +57,20 @@ describe("To construct an equilateral triangle on a given finite straight line",
     })
 
 
-    it("construct segment BA", () => {
+    it("construct segment BA and obtain AB = BA", () => {
         const segAB = world.find(fact("segment", [atom("A"), atom("B")]))!;
         const segBA = world.find(fact("segment", [atom("B"), atom("A")]));
+
         const goal = fact("segment", [atom("B"), atom("A")]);
+        const goal_eq = fact("equal", [segAB, goal]);
 
         // We have segAB but not segBA yet, because we have not applied segmentSymmetry
         expect(segAB).toBeDefined();
         expect(segBA).toBeUndefined();
 
+        // 1.1 This creates
+        // segment(B, A)
+        // equal(segment(A, B), segment(B, A))
         const res = world.substitute(euclideanAxioms.hidden_assumptions.segmentSymmetry, [
             { pattern: euclideanAxioms.hidden_assumptions.segmentSymmetry.terms[0]!, with: segAB },
         ])
@@ -128,6 +81,7 @@ describe("To construct an equilateral triangle on a given finite straight line",
 
         world.addAll(res.data);
         expect(world.has(goal)).toBe(true);
+        expect(world.has(goal_eq)).toBe(true);
     })
 
     it("construct circle (B, A)", () => {
@@ -149,6 +103,9 @@ describe("To construct an equilateral triangle on a given finite straight line",
     it("find intersection point C of circles (A, B) and (B, A)", () => {
         const circleAB = world.find(fact("circle", [atom("A"), atom("B")]))!;
         const circleBA = world.find(fact("circle", [atom("B"), atom("A")]))!;
+
+        // HACK: We know that the introduce function of the World class will deterministically going through the alphabet
+        // So the first introduction will be "C"
         const goal_on_circle_A = fact("on_circle", [atom("C"), atom("A"), atom("B")]);
         const goal_on_circle_B = fact("on_circle", [atom("C"), atom("B"), atom("A")]);
 
@@ -166,6 +123,144 @@ describe("To construct an equilateral triangle on a given finite straight line",
         expect(world.has(goal_on_circle_B)).toBe(true);
     })
 
+    it("construct AC and BC", () => {
+        const pA = world.find(fact("point", [atom("A")]))!;
+        const pB = world.find(fact("point", [atom("B")]))!;
+        const pC = world.find(fact("point", [atom("C")]))!;
+
+        const goal1 = fact("segment", [atom("A"), atom("C")]);
+        const goal2 = fact("segment", [atom("B"), atom("C")]);
+
+        const res = world.substitute(euclideanAxioms.text.postulate1, [
+            { pattern: euclideanAxioms.text.postulate1.terms[0]!, with: pA },
+            // Currying drill
+            { pattern: (euclideanAxioms.text.postulate1.terms[1] as Rule).terms[0]!, with: pC },
+        ])
+
+        if (res.error) {
+            throw new Error(`Substitution failed: ${JSON.stringify(res.error)}`);
+        }
+
+        world.addAll(res.data);
+
+        const res2 = world.substitute(euclideanAxioms.text.postulate1, [
+            { pattern: euclideanAxioms.text.postulate1.terms[0]!, with: pB },
+            // Currying drill
+            { pattern: (euclideanAxioms.text.postulate1.terms[1] as Rule).terms[0]!, with: pC },
+        ])
+
+        if (res2.error) {
+            throw new Error(`Substitution failed: ${JSON.stringify(res2.error)}`);
+        }
+
+        world.addAll(res2.data);
+
+        expect(world.has(goal1)).toBe(true);
+        expect(world.has(goal2)).toBe(true);
+    })
 
 
+    it("prove that AB = AC", () => {
+        const on_circle_A = world.find(fact("on_circle", [atom("C"), atom("A"), atom("B")]))!;
+        const segAC = world.find(fact("segment", [atom("A"), atom("C")]))!;
+        const segAB = world.find(fact("segment", [atom("A"), atom("B")]))!;
+
+        expect(segAC).toBeDefined();
+        expect(segAB).toBeDefined();
+
+        const goal = fact("equal", [segAB, segAC]);
+        const res = world.substitute(euclideanAxioms.hidden_assumptions.radiiEqual, [
+            { pattern: euclideanAxioms.hidden_assumptions.radiiEqual.terms[0]!, with: on_circle_A },
+        ])
+
+        if (res.error) {
+            throw new Error(`Substitution failed: ${JSON.stringify(res.error)}`);
+        }
+        world.addAll(res.data);
+        expect(world.has(goal)).toBe(true);
+    });
+
+    it("prove that BA = BC", () => {
+        const on_circle_B = world.find(fact("on_circle", [atom("C"), atom("B"), atom("A")]))!;
+        const segBC = world.find(fact("segment", [atom("B"), atom("C")]))!;
+        const segBA = world.find(fact("segment", [atom("B"), atom("A")]))!;
+
+        expect(segBC).toBeDefined();
+        expect(segBA).toBeDefined();
+
+        const goal = fact("equal", [segBA, segBC]);
+        const res = world.substitute(euclideanAxioms.hidden_assumptions.radiiEqual, [
+            { pattern: euclideanAxioms.hidden_assumptions.radiiEqual.terms[0]!, with: on_circle_B },])
+
+        if (res.error) {
+            throw new Error(`Substitution failed: ${JSON.stringify(res.error)}`);
+        }
+        world.addAll(res.data);
+
+        console.log('res.data', JSON.stringify(res.data, null, 2));
+
+
+        expect(world.has(goal)).toBe(true);
+    });
+
+    it("prove AC = BC. All 3 sides are now equal.", () => {
+        const segBC = world.find(fact("segment", [atom("B"), atom("C")]))!;
+        const segBA = world.find(fact("segment", [atom("B"), atom("A")]))!;
+        const segAC = world.find(fact("segment", [atom("A"), atom("C")]))!;
+        const segAB = world.find(fact("segment", [atom("A"), atom("B")]))!;
+
+        expect(segBC).toBeDefined();
+        expect(segBA).toBeDefined();
+        expect(segAC).toBeDefined();
+        expect(segAB).toBeDefined();
+
+        // AB = AC
+        const eq1 = world.find(fact("equal", [segAB, segAC]))!;
+        // BC = BA
+        const eq2 = world.find(fact("equal", [segBA, segBC]))!;
+        const goal = fact("equal", [segAC, segBC]);
+
+        expect(eq1).toBeDefined();
+        expect(eq2).toBeDefined();
+
+        const subgoal1 = fact("equal", [segAC, segAB]);
+        const subgoal2 = fact("equal", [segAC, segBA]);
+
+        // We need equal(segAB, segBA) from 1.1
+        const eqAB_BA = world.find(fact("equal", [segAB, segBA]))!;
+        expect(eqAB_BA).toBeDefined();
+
+        // Step 1: Apply symmetry to eq1 to get equal(segAC, segAB)
+        // AC = AB
+        const res1 = world.substitute(euclideanAxioms.hidden_assumptions.equalitySymmetric, [
+            { pattern: euclideanAxioms.hidden_assumptions.equalitySymmetric.terms[0]!, with: eq1 },
+        ]);
+        if (res1.error) throw new Error(`Substitution failed: ${JSON.stringify(res1.error)}`);
+        world.addAll(res1.data);
+
+
+        const eqAC_AB = world.find(subgoal1)!;
+        expect(eqAC_AB).toBeDefined();
+
+        // Step 2: Transitivity: equal(segAC, segAB) + equal(segAB, segBA) → equal(segAC, segBA)
+        const res2 = world.substitute(euclideanAxioms.text.commonNotion1, [
+            { pattern: euclideanAxioms.text.commonNotion1.terms[0]!, with: eqAC_AB },
+            { pattern: (euclideanAxioms.text.commonNotion1.terms[1] as Rule).terms[0]!, with: eqAB_BA },
+        ]);
+        if (res2.error) throw new Error(`Substitution failed: ${JSON.stringify(res2.error)}`);
+        world.addAll(res2.data);
+
+
+        const eqAC_BA = world.find(subgoal2)!;
+        expect(eqAC_BA).toBeDefined();
+
+        // Step 3: Transitivity: equal(segAC, segBA) + equal(segBA, segBC) → equal(segAC, segBC)
+        const res3 = world.substitute(euclideanAxioms.text.commonNotion1, [
+            { pattern: euclideanAxioms.text.commonNotion1.terms[0]!, with: eqAC_BA },
+            { pattern: (euclideanAxioms.text.commonNotion1.terms[1] as Rule).terms[0]!, with: eq2 },
+        ]);
+        if (res3.error) throw new Error(`Substitution failed: ${JSON.stringify(res3.error)}`);
+        world.addAll(res3.data);
+        expect(world.has(goal)).toBe(true);
+    });
 })
