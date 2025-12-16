@@ -38,11 +38,15 @@ export const variable = (symbol: string): Variable => ({ type: "var", symbol });
 export const introduction = (symbol: string): Introduction => ({ type: "introduction", symbol });
 
 // Generic Fact Constructor
-export const fact = (opSymbol: string, terms: Term[]): Fact => ({
-    type: "fact",
-    op: { type: "constructor", symbol: opSymbol },
-    terms
-});
+export const fact = (opSymbol: string, terms: Term[]): Fact => {
+    // TODO: should we enforce that there is at least one term?
+    // Think about `absurd` and `unit` and such...
+    return {
+        type: "fact",
+        op: { type: "constructor", symbol: opSymbol },
+        terms
+    }
+}
 
 export const make_rule = (lhs: Term, rhs0: Term, ...rhs: Term[]): Rule => {
     // TODO: no free variables in RHS

@@ -393,4 +393,66 @@ describe("Rewriting Engine", () => {
         expect(res.data?.[1]).toEqual(make_rule(pB, fact("both", [pA, pB])));
         expect(res.data?.[2]).toEqual(fact("both", [pA, pB]));
     })
+
+
+
+    it("should check for LHS of inner rule be in world ", () => {
+        const a = atom("A");
+        expect(a).toEqual({ type: "atom", symbol: "A" });
+
+        const b = atom("B");
+        expect(b).toEqual({ type: "atom", symbol: "B" });
+
+        const c = atom("C");
+        expect(c).toEqual({ type: "atom", symbol: "C" });
+
+        const friendsAB = fact("friends", [a, b]);
+
+        const x_0 = variable("x");
+        expect(x_0).toEqual({ type: "var", symbol: "x" });
+        const y_0 = variable("y");
+        expect(y_0).toEqual({ type: "var", symbol: "y" });
+
+        const rule = make_rule(
+            fact("friends", [x_0, y_0]),
+            make_rule(
+                fact("same_class", [x_0, y_0]),
+                fact("classmates", [x_0, y_0])
+            )
+        )
+
+        const w = new World();
+        w.add(rule);
+        w.add(friendsAB);
+
+        const res = w.substitute(rule, [
+            { pattern: fact("friends", [x_0, y_0]), with: friendsAB }
+        ])
+
+        if (res.error) {
+            throw new Error(`Substitution failed: ${JSON.stringify(res.error)}`);
+        }
+
+        // 2 facts:
+        // friends(A B) -> (same_class(A B) -> classmates(A B))
+        // same_class(A B) -> classmates(A B)
+
+        // There should be no third fact here because same_class(A B) is NOT in the world facts
+        expect(res.data.length).toEqual(2);
+        expect(res.data[0]).toEqual(
+            make_rule(
+                friendsAB,
+                make_rule(
+                    fact("same_class", [a, b]),
+                    fact("classmates", [a, b])
+                )
+            )
+        );
+        expect(res.data[1]).toEqual(
+            make_rule(
+                fact("same_class", [a, b]),
+                fact("classmates", [a, b])
+            )
+        );
+    });
 })

@@ -2,16 +2,19 @@ import { describe, it, expect, beforeAll } from "bun:test";
 import { World } from "../world";
 import { atom, fact, variable, type Rule } from "../rewriting";
 import { euclideanAxioms } from ".";
+
 describe("Euclid prop 1: Construct equilateral triangle", () => {
     // Shared state across all steps
     let world: World;
 
+    // Axiom
     beforeAll(() => {
         world = new World();
         world.addAll(Object.values(euclideanAxioms.text));
         world.addAll(Object.values(euclideanAxioms.hidden_assumptions));
     });
 
+    // Assumptions
     it("create a world with 2 points", () => {
         const pA = fact("point", [atom("A")]);
         const pB = fact("point", [atom("B")]);
@@ -172,6 +175,15 @@ describe("Euclid prop 1: Construct equilateral triangle", () => {
         const res = world.substitute(euclideanAxioms.hidden_assumptions.radiiEqual, [
             { pattern: euclideanAxioms.hidden_assumptions.radiiEqual.terms[0]!, with: on_circle_A },
         ])
+
+        // A bit of magic here:
+        // on_circle(b,o,a) -> (segment(o,b) -> (equal(segment(o,a), segment(o,b))))
+        // After substitution:
+        // on_circle(C,A,B) -> (segment(A,C) -> (equal(segment(A,B), segment(A,C))))
+        // We had on_circle(C,A,B) in the world of facts
+        // This means we automatically have segment(A,C) -> (equal(segment(A,B), segment(A,C))
+        // And we also have segment(A,C) in the world of facts
+        // So the system automatically return equal(segment(A,B), segment(A,C)) in res.data
 
         if (res.error) {
             throw new Error(`Substitution failed: ${JSON.stringify(res.error)}`);

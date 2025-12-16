@@ -45,7 +45,7 @@ export class World {
         return unique_terms;
     }
 
-    private static decompose(maybe_rules: Term[]) {
+    decompose(maybe_rules: Term[]) {
         const new_facts: Term[] = [];
         while (true) {
             const current_rule = maybe_rules.pop();
@@ -64,13 +64,23 @@ export class World {
                 };
             }
 
-            // If LHS is fully satisfied (aka bounded), we can return each RHS
-            if (all_atoms(lhs)) {
+            // If LHS is fully satisfied (aka bounded), 
+            // And in the world facts
+            // we can return each RHS
 
-                // console.log('LHS OK', JSON.stringify(lhs, null, 2));
+            // Example that fully bounded is not enough:
+            // Rule2: 
+            // friends(a,b) -> (same_school(a,b) -> classmates(a,b))
+            // If we have friends(John,Doe) in the world facts,
+            // but we don't have same_school(John,Doe),
+            // we should not return classmates(John,Doe) yet.
+
+            // Instead of this.facts, we could have asked the user to explicitly provide the world facts to check against
+            // But that would be a bit too tedious for them
+
+            if (all_atoms(lhs) && this.has(lhs)) {
                 for (const rhs of rhs_terms) {
                     new_facts.push(rhs);
-                    // console.log('CHECK', JSON.stringify(rhs, null, 2));
                     maybe_rules.push(rhs);
                 }
             } else {
@@ -112,7 +122,7 @@ export class World {
         const bounded_rule = all_atoms_or_introductions(res.data.result) ? bind_introductions(res.data.result, this.introduce.bind(this)) : res.data.result;
         new_facts.push(bounded_rule);
 
-        const decompose_res = World.decompose([bounded_rule]);
+        const decompose_res = this.decompose([bounded_rule]);
         if (decompose_res.error) {
             return decompose_res;
         }
