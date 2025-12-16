@@ -113,7 +113,7 @@ export class World {
         // Case: 
         // rule: A -> B
         // pattern: A, with: A
-        // Should forward and return B
+        // Should forward and return [A -> B, B]
         // if (res.data.bound_vars.size == 0) {
         //     // return empty, there was nothing bound
         //     return {

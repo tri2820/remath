@@ -49,8 +49,8 @@ export const fact = (opSymbol: string, terms: Term[]): Fact => {
 }
 
 export const make_rule = (lhs: Term, rhs0: Term, ...rhs: Term[]): Rule => {
-    // TODO: no free variables in RHS
-    // TODO: no conflict between introduction symbols and variable symbols (just to make it easier to see, not logically required since we have "type" to distinct)
+    // TODO: enforce no free variables in RHS
+    // TODO: enforce no conflict between introduction symbols and variable symbols (just to make it easier to see (better UX), not logically required since we have "type" to distinct between var and introduction)
     return {
         type: "fact",
         op: { type: "constructor", symbol: "rule" },
