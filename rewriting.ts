@@ -151,7 +151,6 @@ export function bind_introductions(
 // 4. Bind Variables (Substitution)
 export function bind_vars(term: Term, sub: Sub): Result<{
     result: Term,
-    bound_vars: Set<string>
 }> {
     if (term.type === 'var') {
         if (term.symbol in sub) {
@@ -159,7 +158,7 @@ export function bind_vars(term: Term, sub: Sub): Result<{
                 data: {
                     // Becomes an atom
                     result: sub[term.symbol]!,
-                    bound_vars: new Set([term.symbol])
+
                 }
             };
         }
@@ -168,13 +167,11 @@ export function bind_vars(term: Term, sub: Sub): Result<{
             data: {
                 // Still a variable
                 result: term,
-                bound_vars: new Set()
             }
         }
     }
 
     if (term.type === "fact") {
-        let combinedBoundVars = new Set<string>();
         const newTerms: Term[] = [];
 
         for (const t of term.terms) {
@@ -183,9 +180,7 @@ export function bind_vars(term: Term, sub: Sub): Result<{
                 return result;
             }
             newTerms.push(result.data.result);
-            for (const v of result.data.bound_vars) {
-                combinedBoundVars.add(v);
-            }
+
         }
 
         return {
@@ -194,7 +189,6 @@ export function bind_vars(term: Term, sub: Sub): Result<{
                     ...term,
                     terms: newTerms
                 },
-                bound_vars: combinedBoundVars
             }
         };
     }
@@ -202,7 +196,6 @@ export function bind_vars(term: Term, sub: Sub): Result<{
     return {
         data: {
             result: term,
-            bound_vars: new Set()
         }
     }
 }
