@@ -193,16 +193,75 @@ export class World {
         return this.substituteVar(rule, inputMap);
     }
 
+
+    private static getFactAtomSymbols(fact: Term): Set<string> {
+        if (fact.type === 'atom') {
+            return new Set([fact.symbol]);
+        }
+        if (fact.type === 'var') {
+            return new Set();
+        }
+        if (fact.type === 'introduction') {
+            return new Set();
+        }
+        if (fact.type === 'fact') {
+            const atoms = new Set<string>();
+            for (const term of fact.terms) {
+                for (const atom of this.getFactAtomSymbols(term)) {
+                    atoms.add(atom);
+                }
+            }
+            return atoms;
+        }
+
+        // Fallback
+        return new Set();
+    }
+
+    getAtomSymbols(): Set<string> {
+        const atoms = new Set<string>();
+        for (const fact of this.facts) {
+            for (const atom of World.getFactAtomSymbols(fact)) {
+                atoms.add(atom);
+            }
+        }
+        return atoms;
+    }
+
+    static * generateSymbols(): Generator<string> {
+        let i = 0;
+        while (true) {
+            yield World.toBase26(i);
+            i++;
+        }
+    }
+
+    // A -> Z, AA -> ZZ, AAA -> ZZZ, etc.
+    private static toBase26(n: number): string {
+        if (n < 26) {
+            return String.fromCharCode(65 + n);
+        }
+
+        let result = '';
+        do {
+            result = String.fromCharCode(65 + (n % 26)) + result;
+            n = Math.floor(n / 26) - 1;
+        } while (n >= 0);
+
+        return result;
+    }
+
     // Arrow function to capture 'this' context automatically
     introduce = (intro: Introduction): Atom => {
-        const current_index = this.fresh_index[intro.hint] || 1;
+        const atomSymbols = this.getAtomSymbols();
 
-        // Consume current index for this hint
-        this.fresh_index[intro.hint] = current_index + 1;
+        for (const symbol of World.generateSymbols()) {
+            if (!atomSymbols.has(symbol)) {
+                return { type: "atom", symbol };
+            }
+        }
 
-        return {
-            type: "atom",
-            symbol: `${intro.hint}_${current_index}` // e.g. "P_1"
-        };
+        // This should never be reached as the generator is infinite
+        throw new Error("No available symbols");
     }
 }

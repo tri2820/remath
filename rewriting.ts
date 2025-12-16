@@ -5,7 +5,7 @@
 export type Constructor = { type: "constructor", symbol: string };
 export type Atom = { type: "atom", symbol: string };
 export type Variable = { type: "var", symbol: string };
-export type Introduction = { type: "introduction", symbol: string, hint: string };
+export type Introduction = { type: "introduction", symbol: string };
 
 // Recursive Term Definition
 export type Term = Atom | Variable | Introduction | Fact;
@@ -35,7 +35,7 @@ export type Result<T> =
 
 export const atom = (symbol: string): Atom => ({ type: "atom", symbol });
 export const variable = (symbol: string): Variable => ({ type: "var", symbol });
-export const introduction = (symbol: string, hint: string): Introduction => ({ type: "introduction", symbol, hint });
+export const introduction = (symbol: string): Introduction => ({ type: "introduction", symbol });
 
 // Generic Fact Constructor
 export const fact = (opSymbol: string, terms: Term[]): Fact => ({
@@ -45,6 +45,8 @@ export const fact = (opSymbol: string, terms: Term[]): Fact => ({
 });
 
 export const make_rule = (lhs: Term, rhs0: Term, ...rhs: Term[]): Rule => {
+    // TODO: no free variables in RHS
+    // TODO: no conflict between introduction symbols and variable symbols (just to make it easier to see, not logically required since we have "type" to distinct)
     return {
         type: "fact",
         op: { type: "constructor", symbol: "rule" },
@@ -206,6 +208,7 @@ export function match(pattern: Term, bounded: Term): Result<{ sub: Sub }> {
 
     // A. Match Variable
     if (pattern.type === 'var') {
+        // Var can match anything
         return { data: { sub: { [pattern.symbol]: bounded } } };
     }
 
@@ -220,7 +223,7 @@ export function match(pattern: Term, bounded: Term): Result<{ sub: Sub }> {
     // C. Match Fact
     if (pattern.type === "fact") {
         if (bounded.type !== "fact") return { error: { code: "TYPE_MISMATCH" } };
-        if (pattern.op.symbol !== bounded.op.symbol) return { error: { code: "OP_MISMATCH" } };
+        if (pattern.op.symbol !== bounded.op.symbol) return { error: { code: "CONSTRUCTOR_MISMATCH" } };
         if (pattern.terms.length !== bounded.terms.length) return { error: { code: "ARITY_MISMATCH" } };
 
         let combinedSub: Sub = {};

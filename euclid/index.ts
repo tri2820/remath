@@ -21,9 +21,9 @@ export const postulate2 = rule(
     fact("segment", [variable("a"), variable("b")]),
     // RHS: We create a new point c
     // We explicitly assert 'collinear' here, which Euclid assumes implicitly
-    fact("segment", [variable("b"), introduction("c", "c")]),
-    fact("point", [introduction("c", "c")]),
-    fact("collinear", [variable("a"), variable("b"), introduction("c", "c")]),
+    fact("segment", [variable("b"), introduction("c")]),
+    fact("point", [introduction("c")]),
+    fact("collinear", [variable("a"), variable("b"), introduction("c")]),
 );
 
 // Postulate 3: "To describe a circle with any center and distance."
@@ -52,8 +52,8 @@ export const postulate5 = rule(
     fact("line", [variable("a"), variable("b")]),
     rule(
         fact("point", [variable("p")]),
-        fact("point", [introduction("q", "Q")]),
-        fact("parallel_line", [variable("p"), variable("a"), variable("b"), introduction("q", "Q")])
+        fact("point", [introduction("q")]),
+        fact("parallel_line", [variable("p"), variable("a"), variable("b"), introduction("q")])
     )
 );
 
@@ -148,11 +148,11 @@ export const circleIntersection = rule(
     rule(
         fact("circle", [variable("o2"), variable("b")]),
         // RHS 1: First, assert the point exists
-        fact("point", [introduction("c", "C")]),
+        fact("point", [introduction("c")]),
         // RHS 2: Assert the point is on the first circle
-        fact("on_circle", [introduction("c", "C"), variable("o1"), variable("a")]),
+        fact("on_circle", [introduction("c"), variable("o1"), variable("a")]),
         // RHS 3: Assert the point is on the second circle
-        fact("on_circle", [introduction("c", "C"), variable("o2"), variable("b")])
+        fact("on_circle", [introduction("c"), variable("o2"), variable("b")])
     )
 );
 // HIDDEN RULE: Point on Circle implies Equal Radius (Definition 15)

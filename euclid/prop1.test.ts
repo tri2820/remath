@@ -149,8 +149,8 @@ describe("To construct an equilateral triangle on a given finite straight line",
     it("find intersection point C of circles (A, B) and (B, A)", () => {
         const circleAB = world.find(fact("circle", [atom("A"), atom("B")]))!;
         const circleBA = world.find(fact("circle", [atom("B"), atom("A")]))!;
-        const goal_on_circle_A = fact("on_circle", [atom("C_1"), atom("A"), atom("B")]);
-        const goal_on_circle_B = fact("on_circle", [atom("C_1"), atom("B"), atom("A")]);
+        const goal_on_circle_A = fact("on_circle", [atom("C"), atom("A"), atom("B")]);
+        const goal_on_circle_B = fact("on_circle", [atom("C"), atom("B"), atom("A")]);
 
         const res = world.substitute(euclideanAxioms.hidden_assumptions.circleIntersection, [
             { pattern: euclideanAxioms.hidden_assumptions.circleIntersection.terms[0]!, with: circleAB },
@@ -160,10 +160,6 @@ describe("To construct an equilateral triangle on a given finite straight line",
         if (res.error) {
             throw new Error(`Substitution failed: ${JSON.stringify(res.error)}`);
         }
-
-
-        console.log('res.data', JSON.stringify(res.data, null, 2));
-        console.log('res.data.length', res.data.length);
 
         world.addAll(res.data);
         expect(world.has(goal_on_circle_A)).toBe(true);

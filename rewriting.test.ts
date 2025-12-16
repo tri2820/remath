@@ -92,7 +92,7 @@ describe("Rewriting Engine", () => {
         });
 
         it("should return false if an introduction exists", () => {
-            const t = fact("line", [atom("A"), introduction("P", "P")]);
+            const t = fact("line", [atom("A"), introduction("p")]);
             expect(all_atoms(t)).toBeFalse();
         });
     });
@@ -103,14 +103,15 @@ describe("Rewriting Engine", () => {
     describe("bind_introductions", () => {
         it("should replace introductions with new atoms", () => {
             let counter = 0;
-            const generator = (i: Introduction) => atom(`${i.hint}_${counter++}`);
+            const generator = (i: Introduction) => atom(`${counter++}`);
 
-            const term = fact("segment", [atom("A"), introduction("P", "NewPoint")]);
+            const term = fact("segment", [atom("A"), introduction("p")]);
             const result = bind_introductions(term, generator);
 
             // Structure check
             expect((result as any).terms[1].type).toBe("atom");
-            expect((result as any).terms[1].symbol).toBe("NewPoint_0");
+            console.log('result', JSON.stringify(result, null, 2));
+            expect((result as any).terms[1].symbol).toBe("0");
         });
 
         it("should be consistent: same intro symbol = same atom", () => {
@@ -118,7 +119,7 @@ describe("Rewriting Engine", () => {
             const generator = (i: Introduction) => atom(`Gen_${counter++}`);
 
             // A rule like: exists(P) -> pair(P, P)
-            const term = fact("pair", [introduction("X", "H"), introduction("X", "H")]);
+            const term = fact("pair", [introduction("x"), introduction("x")]);
 
             const result = bind_introductions(term, generator);
             const terms = (result as any).terms;
@@ -270,7 +271,7 @@ describe("Rewriting Engine", () => {
             // segment(A, B) => segment(B, !C)
             const r = rule(
                 fact("segment", [variable("A"), variable("B")]),
-                fact("segment", [variable("B"), introduction("C", "C")])
+                fact("segment", [variable("B"), introduction("c")])
             );
             const res = validate_rule(r);
             expect(res.data).toBeDefined();
