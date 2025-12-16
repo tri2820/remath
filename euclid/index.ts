@@ -100,7 +100,9 @@ export const definition_RightAngle = rule(
         fact("angle", [variable("b"), variable("d"), variable("c")])
     ]),
     // Result: It is a right angle
-    fact("right_angle", [variable("a"), variable("d"), variable("c")])
+    fact("right", [
+        fact("angle", [variable("a"), variable("d"), variable("c")])
+    ])
 );
 
 // =======================
@@ -208,9 +210,13 @@ export const collinearImpliesStraightAngle = rule(
     make_rule(
         fact("angle", [variable("a"), variable("b"), variable("c")]),
         make_rule(
-            fact("right_angle", [variable("d"), variable("e"), variable("f")]),
+            fact("right", [
+                fact("angle", [variable("a"), variable("b"), variable("c")])
+            ]),
             make_rule(
-                fact("right_angle", [variable("g"), variable("h"), variable("i")]),
+                fact("right", [
+                    fact("angle", [variable("g"), variable("h"), variable("i")])
+                ]),
                 fact("equal", [
                     fact("angle", [variable("a"), variable("b"), variable("c")]),
                     fact("sum", [
