@@ -51,6 +51,9 @@ export const fact = (opSymbol: string, terms: Term[]): Fact => {
 export const make_rule = (lhs: Term, rhs0: Term, ...rhs: Term[]): Rule => {
     // TODO: enforce no free variables in RHS
     // TODO: enforce no conflict between introduction symbols and variable symbols (just to make it easier to see (better UX), not logically required since we have "type" to distinct between var and introduction)
+    // Relevant: actually if no conflict, we only need the first appearance of intro symbol to be explicitly classify as introduction, later appearances can omitted, by there is no harm in being explicit everywhere
+    // explicit: var x -> (intro y) (segment (intro y) x)
+    // omit, implicit: var x -> (intro y) (segment (_ y) x)
     return {
         type: "fact",
         op: { type: "constructor", symbol: "rule" },
