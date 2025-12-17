@@ -33,3 +33,11 @@ export const paschAxiom = rule(
 - I need to show it that.
 - `.lock()` -> now add and addAll only accept facts spitted out by `.substitute`
 - `.substitute()` -> Now it remembers all facts it has ever spitted out
+- Once locked, cannot be unlock (for simplicity)
+
+- The word as proof:
+- The world started with some rules with vars, and some structured, bounded facts.
+- point A, point B, some point(x) -> ...
+- We might notice that A and B here are just placeholder names, and that the transition itself can be run regardless if the world started out with point C and point D instead of point A and B, as long as the locked rules are the same.
+- We can definitely improve the claim "locked rules are the same" to being "used locked rules are the same". But keep it so for simplicity.
+- In a way, A and B are only there to provide distinctions (to single out a particular rule application thatt is meaninful to be part of the proof we care about, from the large web of applications), and themselves are a sort of meta-variables.
