@@ -8,7 +8,7 @@ sub world (rule (point x) (point (intro y)) (segment (point x) (point (intro y))
 // print out the world facts
 :facts world
 // expect to see
-// - rule (point A) (point (atom B)) (segment (point A) (point (atom B)))
+// - rule (point (atom A)) (point (atom B)) (segment (point (atom A)) (point (atom B)))
 // - point (atom B)
-// - segment (point A) (point (atom B))
+// - segment (point (atom A)) (point (atom B))
 ```
