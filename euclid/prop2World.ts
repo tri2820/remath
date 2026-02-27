@@ -11,6 +11,7 @@ import {
     findPointRule,
     findSharedPointOnCircles,
     importRule,
+    intersect,
     mustFind,
     pointsOnCircle,
 } from "./testUtils";
@@ -35,7 +36,8 @@ export const buildProp2TheoremWorld = (
 
     const world1 = buildProp1TheoremWorld();
     const prop1Rule = world1.asRule();
-    const importedProp1Rule = importRule(prop1Rule, world.facts);
+    const overlap = intersect(world1.facts, world.facts);
+    const importedProp1Rule = importRule(prop1Rule, overlap);
     world.add(importedProp1Rule);
 
     const initialPoints = new Set([givenPoint, segmentStart, segmentEnd]);

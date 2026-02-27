@@ -10,6 +10,7 @@ import {
     findPointRule,
     findProp2Result,
     importRule,
+    intersect,
     mustFind,
     pointsOnCircle,
 } from "./testUtils";
@@ -31,12 +32,14 @@ export const buildProp3TheoremWorld = (
 
     const world1 = buildProp1TheoremWorld();
     const prop1Rule = world1.asRule();
-    const importedProp1Rule = importRule(prop1Rule, world.facts);
+    const overlapWithProp1 = intersect(world1.facts, world.facts);
+    const importedProp1Rule = importRule(prop1Rule, overlapWithProp1);
     world.add(importedProp1Rule);
 
     const world2 = buildProp2TheoremWorld();
     const prop2Rule = world2.asRule();
-    const importedProp2Rule = importRule(prop2Rule, world.facts);
+    const overlapWithProp2 = intersect(world2.facts, world.facts);
+    const importedProp2Rule = importRule(prop2Rule, overlapWithProp2);
     world.add(importedProp2Rule);
 
     const initialPoints = new Set([greaterStart, greaterEnd, lessStart, lessEnd]);

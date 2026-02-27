@@ -27,6 +27,17 @@ export const apply = (
     return res.data;
 };
 
+// Keep this as plain structural overlap for elegance: background is just intersection of facts
+// This stays robust even when the overlap is broader than theorem-relevant
+// assumptions, because importRule only consumes the leading LHS facts of the
+// imported rule. So ordinary use still works, and odd cross-world uses do not
+// become unsound merely because the overlap is broad. We could revisit this
+// later with a narrower theorem-aware intersection if we want a more guided import.
+export const intersect = (
+    left: Term[],
+    right: Term[]
+): Term[] => left.filter(l => right.some(r => equal_term(l, r)));
+
 export const importRule = (
     rootRule: Rule,
     availableFacts: Term[]
