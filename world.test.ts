@@ -1,6 +1,9 @@
 import { describe, it, expect } from "bun:test";
 import { atom, make_rule, fact, variable, rule, introduction } from "./rewriting";
 import { World } from "./world";
+import { buildProp1TheoremWorld } from "./euclid/prop1World";
+import { euclideanAxioms } from "./euclid";
+import { importRule } from "./euclid/testUtils";
 
 
 describe("Rewriting Engine", () => {
@@ -543,6 +546,28 @@ describe("Rewriting Engine", () => {
         );
 
         expect(exported).toEqual(expected);
+    })
+
+    it("importRule discharges shared background assumptions and leaves proposition givens", () => {
+        const prop1Rule = buildProp1TheoremWorld().asRule();
+        const imported = importRule(prop1Rule, [
+            euclideanAxioms.text.postulate1,
+            euclideanAxioms.text.postulate3,
+            euclideanAxioms.text.commonNotion1,
+            euclideanAxioms.hidden_assumptions.segmentSymmetry,
+            euclideanAxioms.hidden_assumptions.circleIntersection,
+            euclideanAxioms.hidden_assumptions.radiiEqual,
+            euclideanAxioms.hidden_assumptions.equalitySymmetric,
+        ]);
+
+        expect(imported.terms[0]).toEqual(fact("point", [variable("v0")]));
+
+        const next = imported.terms[1];
+        if (!next || next.type !== "fact" || next.op.symbol !== "rule") {
+            throw new Error("Expected importRule to return a residual curried rule");
+        }
+
+        expect(next.terms[0]).toEqual(fact("point", [variable("v1")]));
     })
 
 })

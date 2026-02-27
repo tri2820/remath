@@ -1,5 +1,5 @@
 import type { World } from "../world";
-import { type Rule, type Term, fact, atom } from "../rewriting";
+import { type Rule, type Term, fact, atom, equal_term } from "../rewriting";
 
 type Substitution = {
     pattern: Term;
@@ -25,6 +25,50 @@ export const apply = (
     }
     world.addAll(res.data);
     return res.data;
+};
+
+export const importRule = (
+    rootRule: Rule,
+    availableFacts: Term[]
+): Rule => {
+    let current: Term = rootRule;
+
+    while (current.type === "fact" && current.op.symbol === "rule") {
+        const lhs: Term | undefined = current.terms[0];
+        const rhs: Term | undefined = current.terms[1];
+
+        if (!lhs || !rhs) break;
+        if (!availableFacts.some(f => equal_term(f, lhs))) break;
+
+        current = rhs;
+    }
+
+    if (current.type !== "fact" || current.op.symbol !== "rule") {
+        throw new Error("importRule: expected a residual rule after discharging shared assumptions");
+    }
+
+    return current as Rule;
+};
+
+export const findPointRule = (
+    terms: Term[],
+    options: { grounded?: boolean } = {}
+): Rule => {
+    const { grounded = false } = options;
+    const matches = terms.filter((term): term is Rule => {
+        if (term.type !== "fact" || term.op.symbol !== "rule") return false;
+        const lhs = term.terms[0];
+        if (!lhs || lhs.type !== "fact" || lhs.op.symbol !== "point" || lhs.terms.length !== 1) return false;
+        const symbol = lhs.terms[0];
+        if (!symbol) return false;
+        return grounded ? symbol.type === "atom" : symbol.type === "var";
+    });
+
+    if (matches.length !== 1) {
+        throw new Error(`Expected exactly one point-rule witness, got ${matches.length}`);
+    }
+
+    return matches[0]!;
 };
 
 export const drawSegment = (

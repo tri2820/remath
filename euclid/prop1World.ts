@@ -15,8 +15,16 @@ export const buildProp1TheoremWorld = (
     b = "B"
 ): World => {
     const world = new World();
-    world.addAll(Object.values(euclideanAxioms.text));
-    world.addAll(Object.values(euclideanAxioms.hidden_assumptions));
+    // Keep LHS surface minimal for world.asRule(): add only rules actually used by Prop 1.
+    world.addAll([
+        euclideanAxioms.text.postulate1,
+        euclideanAxioms.text.postulate3,
+        euclideanAxioms.text.commonNotion1,
+        euclideanAxioms.hidden_assumptions.segmentSymmetry,
+        euclideanAxioms.hidden_assumptions.circleIntersection,
+        euclideanAxioms.hidden_assumptions.radiiEqual,
+        euclideanAxioms.hidden_assumptions.equalitySymmetric,
+    ]);
 
     const initialPoints = new Set([a, b]);
     for (const symbol of initialPoints) {

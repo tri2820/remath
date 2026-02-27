@@ -1,17 +1,20 @@
 import assert from "node:assert/strict";
+import { World } from "../world";
 import { atom, fact, type Rule } from "../rewriting";
-import { euclideanAxioms, lineCircleIntersectionAtStart } from ".";
+import { collinearSymmetry, euclideanAxioms, lineCircleIntersectionAtEnd, lineCircleIntersectionAtStart } from ".";
 import {
     apply,
     applyTransitivity,
     collinearThirds,
     drawSegment,
+    findPointRule,
     findProp2Result,
+    importRule,
     mustFind,
     pointsOnCircle,
 } from "./testUtils";
+import { buildProp1TheoremWorld } from "./prop1World";
 import { buildProp2TheoremWorld } from "./prop2World";
-import type { World } from "../world";
 
 export const buildProp3TheoremWorld = (
     greaterStart = "A",
@@ -19,7 +22,45 @@ export const buildProp3TheoremWorld = (
     lessStart = "C",
     lessEnd = "D"
 ): World => {
-    const world = buildProp2TheoremWorld(greaterStart, lessStart, lessEnd);
+    const world = new World();
+    world.addAll(Object.values(euclideanAxioms.text));
+    world.addAll(Object.values(euclideanAxioms.hidden_assumptions));
+    world.add(lineCircleIntersectionAtEnd);
+    world.add(lineCircleIntersectionAtStart);
+    world.add(collinearSymmetry);
+
+    const world1 = buildProp1TheoremWorld();
+    const prop1Rule = world1.asRule();
+    const importedProp1Rule = importRule(prop1Rule, world.facts);
+    world.add(importedProp1Rule);
+
+    const world2 = buildProp2TheoremWorld();
+    const prop2Rule = world2.asRule();
+    const importedProp2Rule = importRule(prop2Rule, world.facts);
+    world.add(importedProp2Rule);
+
+    const initialPoints = new Set([greaterStart, greaterEnd, lessStart, lessEnd]);
+    for (const symbol of initialPoints) {
+        world.add(fact("point", [atom(symbol)]));
+    }
+
+    world.lock();
+
+    const pointAtGreaterStart = mustFind(world, fact("point", [atom(greaterStart)]), `point(${greaterStart})`);
+    const importedAfterGreaterStart = apply(world, importedProp2Rule, [
+        { pattern: importedProp2Rule.terms[0]!, with: pointAtGreaterStart },
+    ]);
+    const prop2AtLessStartRule = findPointRule(importedAfterGreaterStart);
+    const pointAtLessStart = mustFind(world, fact("point", [atom(lessStart)]), `point(${lessStart})`);
+    const importedAfterLessStart = apply(world, prop2AtLessStartRule, [
+        { pattern: prop2AtLessStartRule.terms[0]!, with: pointAtLessStart },
+    ]);
+    const prop2AtLessEndRule = findPointRule(importedAfterLessStart);
+    const pointAtLessEnd = mustFind(world, fact("point", [atom(lessEnd)]), `point(${lessEnd})`);
+    apply(world, prop2AtLessEndRule, [
+        { pattern: prop2AtLessEndRule.terms[0]!, with: pointAtLessEnd },
+    ]);
+
     const { endpoint: pE, equality: eqCD_AE } = findProp2Result(world, greaterStart, lessStart, lessEnd);
 
     mustFind(world, fact("point", [atom(greaterEnd)]), `point(${greaterEnd})`);

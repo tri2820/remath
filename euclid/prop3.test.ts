@@ -21,7 +21,7 @@ describe("Euclid Prop 3: Cut off from the greater a segment equal to the less", 
         eqCD_AE = prop2.equality;
     });
 
-    it("reuses proposition 2 world as a lemma state", () => {
+    it("reuses proposition 2 as an imported theorem rule", () => {
         const targetEq = fact("equal", [
             fact("segment", [atom("C"), atom("D")]),
             fact("segment", [atom("A"), atom(pE)]),
