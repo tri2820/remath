@@ -56,11 +56,11 @@ export const playfairExistence = rule(
     rule(
         fact("point", [variable("p")]),
         fact("point", [introduction("q")]),
+        fact("line", [variable("p"), introduction("q")]),
         fact("parallel", [
             fact("line", [variable("p"), introduction("q")]),
             fact("line", [variable("a"), variable("b")])
         ]),
-        fact("collinear", [variable("p"), introduction("q")])
     )
 );
 
@@ -273,9 +273,9 @@ export const segmentSymmetry = rule(
     ])
 );
 
-// 1. Line-Circle Intersection (Construction)
-// "To produce a straight line (segment AB) until it meets a circle (Center B)."
-export const lineCircleIntersection = rule(
+// 1. Line-Circle Intersection (Continuity: center at segment end)
+// Given segment A -> B, extend to meet a circle centered at B.
+export const lineCircleIntersectionAtEnd = rule(
     // The Input: A directional segment A -> B
     fact("segment", [variable("a"), variable("b")]),
     rule(
@@ -290,6 +290,18 @@ export const lineCircleIntersection = rule(
 
         // 2. It lies on the boundary
         fact("on_circle", [introduction("x"), variable("b"), variable("r")])
+    )
+);
+
+// 2. Line-Circle Intersection (Continuity: center at segment start)
+// Given segment A -> B, extend to meet a circle centered at A.
+export const lineCircleIntersectionAtStart = rule(
+    fact("segment", [variable("a"), variable("b")]),
+    rule(
+        fact("circle", [variable("a"), variable("r")]),
+        fact("point", [introduction("x")]),
+        fact("collinear", [variable("a"), variable("b"), introduction("x")]),
+        fact("on_circle", [introduction("x"), variable("a"), variable("r")])
     )
 );
 

@@ -1,0 +1,119 @@
+import type { World } from "../world";
+import { type Rule, type Term, fact, atom } from "../rewriting";
+
+type Substitution = {
+    pattern: Term;
+    with: Term;
+};
+
+export const mustFind = (world: World, pattern: Term, label: string): Term => {
+    const found = world.find(pattern);
+    if (!found) {
+        throw new Error(`Missing fact: ${label}`);
+    }
+    return found;
+};
+
+export const apply = (
+    world: World,
+    rule: Rule,
+    substitutions: Substitution[]
+): Term[] => {
+    const res = world.substitute(rule, substitutions);
+    if (res.error) {
+        throw new Error(`Substitution failed (${res.error.code}): ${JSON.stringify(res.error)}`);
+    }
+    world.addAll(res.data);
+    return res.data;
+};
+
+export const drawSegment = (
+    world: World,
+    a: string,
+    b: string,
+    postulate1: Rule
+) => {
+    const pA = mustFind(world, fact("point", [atom(a)]), `point(${a})`);
+    const pB = mustFind(world, fact("point", [atom(b)]), `point(${b})`);
+    apply(world, postulate1, [
+        { pattern: postulate1.terms[0]!, with: pA },
+        { pattern: (postulate1.terms[1] as Rule).terms[0]!, with: pB },
+    ]);
+};
+
+export const applyTransitivity = (
+    world: World,
+    commonNotion1: Rule,
+    eqAB: Term,
+    eqBC: Term
+) => {
+    apply(world, commonNotion1, [
+        { pattern: commonNotion1.terms[0]!, with: eqAB },
+        { pattern: (commonNotion1.terms[1] as Rule).terms[0]!, with: eqBC },
+    ]);
+};
+
+export const applyEqualitySymmetry = (
+    world: World,
+    equalitySymmetric: Rule,
+    eqAB: Term
+) => {
+    apply(world, equalitySymmetric, [
+        { pattern: equalitySymmetric.terms[0]!, with: eqAB },
+    ]);
+};
+
+export const atomSymbol = (term: Term): string | undefined => {
+    if (term.type !== "atom") return undefined;
+    return term.symbol;
+};
+
+export const pointsOnCircle = (world: World, center: string, radius: string): string[] => {
+    const out = new Set<string>();
+    for (const f of world.facts) {
+        if (f.type !== "fact" || f.op.symbol !== "on_circle" || f.terms.length !== 3) continue;
+        const p = atomSymbol(f.terms[0]!);
+        const o = atomSymbol(f.terms[1]!);
+        const a = atomSymbol(f.terms[2]!);
+        if (p && o === center && a === radius) {
+            out.add(p);
+        }
+    }
+    return [...out];
+};
+
+export const collinearThirds = (world: World, a: string, b: string): string[] => {
+    const out = new Set<string>();
+    for (const f of world.facts) {
+        if (f.type !== "fact" || f.op.symbol !== "collinear" || f.terms.length !== 3) continue;
+        const t0 = atomSymbol(f.terms[0]!);
+        const t1 = atomSymbol(f.terms[1]!);
+        const t2 = atomSymbol(f.terms[2]!);
+        if (t0 === a && t1 === b && t2) {
+            out.add(t2);
+        }
+    }
+    return [...out];
+};
+
+export const findSharedPointOnCircles = (
+    world: World,
+    center0: string,
+    radius0: string,
+    center1: string,
+    radius1: string,
+    excluded: string[] = []
+): string => {
+    const on0 = new Set(pointsOnCircle(world, center0, radius0));
+    const on1 = new Set(pointsOnCircle(world, center1, radius1));
+    const banned = new Set(excluded);
+    const candidates = [...on0].filter(symbol => on1.has(symbol) && !banned.has(symbol));
+
+    if (candidates.length !== 1) {
+        throw new Error(
+            `Expected 1 shared point on circles (${center0},${radius0}) and (${center1},${radius1}), got ${candidates.length}`
+        );
+    }
+
+    return candidates[0]!;
+};

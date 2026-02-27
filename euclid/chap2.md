@@ -38,7 +38,7 @@ In a world that starts with atoms `A, B, C`, these usually become `D, E, F` resp
 ### 3. Extend p1B Using Given Length BC
 
 1. Apply `postulate3` on `segment(B, C)` -> `circle(B, C)`.
-2. Apply `lineCircleIntersection` with `segment(p1, B)` and `circle(B, C)` -> introduce `p2`, plus:
+2. Apply `lineCircleIntersectionAtEnd` with `segment(p1, B)` and `circle(B, C)` -> introduce `p2`, plus:
    - `collinear(p1, B, p2)`
    - `on_circle(p2, B, C)`
 3. Apply `postulate1` on `(B, p2)` so `radiiEqual` can be used on `on_circle(p2, B, C)`.
@@ -47,7 +47,7 @@ In a world that starts with atoms `A, B, C`, these usually become `D, E, F` resp
 ### 4. Extend p1A to Create Target Endpoint
 
 1. Apply `postulate3` on `segment(p1, p2)` -> `circle(p1, p2)`.
-2. Apply `lineCircleIntersection` with `segment(p1, A)` and `circle(p1, p2)` -> introduce `p3`, plus:
+2. Apply `lineCircleIntersectionAtStart` with `segment(p1, A)` and `circle(p1, p2)` -> introduce `p3`, plus:
    - `collinear(p1, A, p3)`
    - `on_circle(p3, p1, p2)`
 3. Apply `postulate1` on `(A, p3)` and `(p1, p3)`.
