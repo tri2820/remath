@@ -18,7 +18,7 @@ export class World {
 
     // Funny how this reminds me of Laws of Form.
     // In that the world would not be "locked", I think. 
-    // There would be some other sort of mechanism to involve the world to adapt to facts that are born from paradoxes.
+    // There would be some other sort of mechanism to evolve the world to adapt automatically to facts that are born from paradoxes.
     lock() {
         this.__locked = true;
     }
