@@ -1,4 +1,4 @@
-import { all_atoms, all_atoms_or_introductions, bind_introductions, bind_vars, match, equal_term, type Atom, type Introduction, type Result, type Rule, type Sub, type Fact, type Term, somewhere_equal } from "./rewriting";
+import { all_atoms, all_atoms_or_introductions, bind_introductions, bind_vars, match, equal_term, type Atom, type Introduction, type Result, type Rule, type Sub, type Term, somewhere_equal, make_rule, variable, introduction } from "./rewriting";
 
 
 type Substitution = {
@@ -14,12 +14,15 @@ export class World {
 
     // Initialize the index map
     private __locked = false;
+    private facts_at_lock: Term[] = [];
     private derived_facts: Term[] = [];
 
     // Funny how this reminds me of Laws of Form.
     // In that the world would not be "locked", I think. 
     // There would be some other sort of mechanism to evolve the world to adapt automatically to facts that are born from paradoxes.
     lock() {
+        if (this.__locked) return;
+        this.facts_at_lock = [...this.facts];
         this.__locked = true;
     }
 
@@ -299,5 +302,70 @@ export class World {
 
         // This should never be reached as the generator is infinite
         throw new Error("No available symbols");
+    }
+
+    private static curryRule(lhsTerms: Term[], rhsTerms: Term[]): Rule {
+        let out = make_rule(lhsTerms[lhsTerms.length - 1]!, rhsTerms[0]!, ...rhsTerms.slice(1));
+        for (let i = lhsTerms.length - 2; i >= 0; i--) {
+            out = make_rule(lhsTerms[i]!, out);
+        }
+        return out;
+    }
+
+    // ALL the facts that are in the world at the time of locking become the LHS of the rule, and ALL the facts that are derived after locking become the RHS of the rule.
+    // This makes the rule univerally portable and reusable
+    asRule(): Rule {
+        if (!this.locked) {
+            throw new Error("World must be locked before calling asRule().");
+        }
+
+        const lhsTerms = World.deduplicate(this.facts_at_lock);
+        const rhsTerms = World.deduplicate(
+            this.facts.filter(f => !lhsTerms.some(lhs => equal_term(lhs, f)))
+        );
+
+        if (lhsTerms.length === 0) {
+            throw new Error("Cannot export rule: no pre-lock terms.");
+        }
+        if (rhsTerms.length === 0) {
+            throw new Error("Cannot export rule: no post-lock terms.");
+        }
+
+        const preLockSymbols = new Set<string>();
+        for (const term of lhsTerms) {
+            for (const symbol of World.getFactAtomSymbols(term)) {
+                preLockSymbols.add(symbol);
+            }
+        }
+
+        const vars = new Map<string, string>();
+        const intros = new Map<string, string>();
+
+        const generalize = (term: Term): Term => {
+            if (term.type === "atom") {
+                if (preLockSymbols.has(term.symbol)) {
+                    const varName = vars.get(term.symbol) ?? `v${vars.size}`;
+                    vars.set(term.symbol, varName);
+                    return variable(varName);
+                }
+
+                const introName = intros.get(term.symbol) ?? `i${intros.size}`;
+                intros.set(term.symbol, introName);
+                return introduction(introName);
+            }
+
+            if (term.type === "fact") {
+                return {
+                    ...term,
+                    terms: term.terms.map(generalize),
+                };
+            }
+
+            return term;
+        };
+
+        const generalizedLhs = lhsTerms.map(generalize);
+        const generalizedRhs = rhsTerms.map(generalize);
+        return World.curryRule(generalizedLhs, generalizedRhs);
     }
 }

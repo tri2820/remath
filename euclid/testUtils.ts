@@ -117,3 +117,84 @@ export const findSharedPointOnCircles = (
 
     return candidates[0]!;
 };
+
+const segmentEndpoints = (term: Term): [string, string] | undefined => {
+    if (term.type !== "fact" || term.op.symbol !== "segment" || term.terms.length !== 2) return undefined;
+    const p0 = atomSymbol(term.terms[0]!);
+    const p1 = atomSymbol(term.terms[1]!);
+    if (!p0 || !p1) return undefined;
+    return [p0, p1];
+};
+
+export const findProp2Result = (
+    world: World,
+    givenPoint: string,
+    segmentStart: string,
+    segmentEnd: string,
+    options: { excludeEndpoints?: string[] } = {}
+): { endpoint: string; equality: Term } => {
+    const { excludeEndpoints = [] } = options;
+    const excluded = new Set(excludeEndpoints);
+    const matches: { endpoint: string; equality: Term }[] = [];
+
+    const inspect = (lhs: Term, rhs: Term, equality: Term): void => {
+        const lSeg = segmentEndpoints(lhs);
+        const rSeg = segmentEndpoints(rhs);
+        if (!lSeg || !rSeg) return;
+        if (lSeg[0] !== segmentStart || lSeg[1] !== segmentEnd) return;
+        if (rSeg[0] !== givenPoint) return;
+        if (excluded.has(rSeg[1])) return;
+        matches.push({ endpoint: rSeg[1], equality });
+    };
+
+    for (const f of world.facts) {
+        if (f.type !== "fact" || f.op.symbol !== "equal" || f.terms.length !== 2) continue;
+        const lhs = f.terms[0]!;
+        const rhs = f.terms[1]!;
+        inspect(lhs, rhs, f);
+        inspect(rhs, lhs, f);
+    }
+
+    if (matches.length !== 1) {
+        throw new Error(`Expected exactly one Prop 2 equality witness, got ${matches.length}`);
+    }
+    return matches[0]!;
+};
+
+export const findProp3Result = (
+    world: World,
+    greaterStart: string,
+    lessStart: string,
+    lessEnd: string,
+    options: { onRayTo?: string } = {}
+): { endpoint: string; equality: Term } => {
+    const { onRayTo } = options;
+    const matches: { endpoint: string; equality: Term }[] = [];
+
+    const inspect = (lhs: Term, rhs: Term, equality: Term): void => {
+        const lSeg = segmentEndpoints(lhs);
+        const rSeg = segmentEndpoints(rhs);
+        if (!lSeg || !rSeg) return;
+        if (lSeg[0] !== lessStart || lSeg[1] !== lessEnd) return;
+        if (rSeg[0] !== greaterStart) return;
+        if (onRayTo) {
+            const forward = fact("collinear", [atom(greaterStart), atom(onRayTo), atom(rSeg[1])]);
+            const reverse = fact("collinear", [atom(rSeg[1]), atom(onRayTo), atom(greaterStart)]);
+            if (!world.has(forward) && !world.has(reverse)) return;
+        }
+        matches.push({ endpoint: rSeg[1], equality });
+    };
+
+    for (const f of world.facts) {
+        if (f.type !== "fact" || f.op.symbol !== "equal" || f.terms.length !== 2) continue;
+        const lhs = f.terms[0]!;
+        const rhs = f.terms[1]!;
+        inspect(lhs, rhs, f);
+        inspect(rhs, lhs, f);
+    }
+
+    if (matches.length !== 1) {
+        throw new Error(`Expected exactly one Prop 3 equality witness, got ${matches.length}`);
+    }
+    return matches[0]!;
+};

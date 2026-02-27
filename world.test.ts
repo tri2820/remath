@@ -505,4 +505,44 @@ describe("Rewriting Engine", () => {
         expect(w.has(fact("point", [atom("B")]))).toBe(true);
     })
 
+    it("asRule requires a locked world", () => {
+        const w = new World();
+        expect(() => w.asRule()).toThrowError("World must be locked before calling asRule().");
+    })
+
+    it("asRule exports pre-lock terms as LHS and post-lock terms as RHS with symbol generalization", () => {
+        const w = new World();
+        const pointA = fact("point", [atom("A")]);
+        const growthRule = make_rule(
+            fact("point", [atom("A")]),
+            fact("point", [introduction("fresh")])
+        );
+
+        w.add(pointA);
+        w.add(growthRule);
+        w.lock();
+
+        const res = w.substitute(growthRule, []);
+        if (res.error) throw new Error("Unexpected substitution error");
+        w.addAll(res.data);
+
+        const exported = w.asRule();
+        const expected = make_rule(
+            fact("point", [variable("v0")]),
+            make_rule(
+                make_rule(
+                    fact("point", [variable("v0")]),
+                    fact("point", [introduction("fresh")])
+                ),
+                make_rule(
+                    fact("point", [variable("v0")]),
+                    fact("point", [introduction("i0")])
+                ),
+                fact("point", [introduction("i0")])
+            )
+        );
+
+        expect(exported).toEqual(expected);
+    })
+
 })

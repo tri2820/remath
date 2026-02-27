@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { World } from "../world";
-import { atom, fact, type Rule, type Term } from "../rewriting";
+import { atom, fact, type Rule } from "../rewriting";
 import { collinearSymmetry, euclideanAxioms, lineCircleIntersectionAtEnd, lineCircleIntersectionAtStart } from ".";
 import {
     apply,
@@ -12,34 +12,18 @@ import {
     mustFind,
     pointsOnCircle,
 } from "./testUtils";
-
-type BuildProp2WorldParams = {
-    givenPoint: string;
-    segmentStart: string;
-    segmentEnd: string;
-    reservedPoints?: string[];
-};
-
-type BuildProp2WorldResult = {
-    world: World;
-    p1: string;
-    p2: string;
-    endpoint: string;
-    equality: Term;
-};
+import { buildProp1TheoremWorld } from "./prop1World";
 
 const assertSingle = (values: string[], label: string): string => {
     assert.equal(values.length, 1, `${label}: expected exactly one candidate, got ${values.length}`);
     return values[0]!;
 };
 
-export const buildProp2World = ({
-    givenPoint,
-    segmentStart,
-    segmentEnd,
-    reservedPoints = [],
-}: BuildProp2WorldParams): BuildProp2WorldResult => {
-    // Phase 0: initialize a fresh proof world with core axioms and continuity helpers.
+export const buildProp2TheoremWorld = (
+    givenPoint = "A",
+    segmentStart = "B",
+    segmentEnd = "C"
+): World => {
     const world = new World();
     world.addAll(Object.values(euclideanAxioms.text));
     world.addAll(Object.values(euclideanAxioms.hidden_assumptions));
@@ -47,17 +31,21 @@ export const buildProp2World = ({
     world.add(lineCircleIntersectionAtStart);
     world.add(collinearSymmetry);
 
-    // Seed the required points so postulate-driven constructions can start.
-    const initialPoints = new Set([givenPoint, segmentStart, segmentEnd, ...reservedPoints]);
+    const world1 = buildProp1TheoremWorld();
+    world.add(world1.asRule());
+
+    const initialPoints = new Set([givenPoint, segmentStart, segmentEnd]);
     for (const symbol of initialPoints) {
         world.add(fact("point", [atom(symbol)]));
     }
 
-    // Phase 1: setup base segment from given point and the target source segment.
-    drawSegment(world, givenPoint, segmentStart, euclideanAxioms.text.postulate1);
+    world.lock();
+
+    // Phase 1: setup the target source segment to be copied.
     drawSegment(world, segmentStart, segmentEnd, euclideanAxioms.text.postulate1);
 
-    // Phase 2: construct equilateral triangle on segment (givenPoint, segmentStart).
+    // Phase 2: construct Prop 1 figure on (givenPoint, segmentStart).
+    drawSegment(world, givenPoint, segmentStart, euclideanAxioms.text.postulate1);
     const segAB = mustFind(world, fact("segment", [atom(givenPoint), atom(segmentStart)]), "segment(givenPoint, segmentStart)");
     apply(world, euclideanAxioms.text.postulate3, [
         { pattern: euclideanAxioms.text.postulate3.terms[0]!, with: segAB },
@@ -83,10 +71,43 @@ export const buildProp2World = ({
         segmentStart,
         segmentStart,
         givenPoint,
-        [givenPoint, segmentStart, segmentEnd, ...reservedPoints]
+        [givenPoint, segmentStart, segmentEnd]
     );
     drawSegment(world, p1, givenPoint, euclideanAxioms.text.postulate1);
     drawSegment(world, p1, segmentStart, euclideanAxioms.text.postulate1);
+    const segP1AProof = mustFind(world, fact("segment", [atom(p1), atom(givenPoint)]), "segment(p1, givenPoint)");
+    const segP1BProof = mustFind(world, fact("segment", [atom(p1), atom(segmentStart)]), "segment(p1, segmentStart)");
+    apply(world, euclideanAxioms.hidden_assumptions.segmentSymmetry, [
+        { pattern: euclideanAxioms.hidden_assumptions.segmentSymmetry.terms[0]!, with: segP1AProof },
+    ]);
+    apply(world, euclideanAxioms.hidden_assumptions.segmentSymmetry, [
+        { pattern: euclideanAxioms.hidden_assumptions.segmentSymmetry.terms[0]!, with: segP1BProof },
+    ]);
+
+    const onP1AB = mustFind(world, fact("on_circle", [atom(p1), atom(givenPoint), atom(segmentStart)]), "on_circle(p1, givenPoint, segmentStart)");
+    const onP1BA = mustFind(world, fact("on_circle", [atom(p1), atom(segmentStart), atom(givenPoint)]), "on_circle(p1, segmentStart, givenPoint)");
+    apply(world, euclideanAxioms.hidden_assumptions.radiiEqual, [
+        { pattern: euclideanAxioms.hidden_assumptions.radiiEqual.terms[0]!, with: onP1AB },
+    ]);
+    apply(world, euclideanAxioms.hidden_assumptions.radiiEqual, [
+        { pattern: euclideanAxioms.hidden_assumptions.radiiEqual.terms[0]!, with: onP1BA },
+    ]);
+
+    const sAp1 = fact("segment", [atom(givenPoint), atom(p1)]);
+    const sBp1 = fact("segment", [atom(segmentStart), atom(p1)]);
+    const sABFact = fact("segment", [atom(givenPoint), atom(segmentStart)]);
+    const sBAFact = fact("segment", [atom(segmentStart), atom(givenPoint)]);
+    const eqAB_Ap1 = mustFind(world, fact("equal", [sABFact, sAp1]), "equal(segment(givenPoint,segmentStart), segment(givenPoint,p1))");
+    const eqBA_Bp1 = mustFind(world, fact("equal", [sBAFact, sBp1]), "equal(segment(segmentStart,givenPoint), segment(segmentStart,p1))");
+    const eqAB_BA = mustFind(world, fact("equal", [sABFact, sBAFact]), "equal(segment(givenPoint,segmentStart), segment(segmentStart,givenPoint))");
+    applyEqualitySymmetry(world, euclideanAxioms.hidden_assumptions.equalitySymmetric, eqAB_Ap1);
+    const eqAp1_AB = mustFind(world, fact("equal", [sAp1, sABFact]), "equal(segment(givenPoint,p1), segment(givenPoint,segmentStart))");
+    applyTransitivity(world, euclideanAxioms.text.commonNotion1, eqAp1_AB, eqAB_BA);
+    const eqAp1_BA = mustFind(world, fact("equal", [sAp1, sBAFact]), "equal(segment(givenPoint,p1), segment(segmentStart,givenPoint))");
+    applyTransitivity(world, euclideanAxioms.text.commonNotion1, eqAp1_BA, eqBA_Bp1);
+    const eqAp1_Bp1 = mustFind(world, fact("equal", [sAp1, sBp1]), "equal(segment(givenPoint,p1), segment(segmentStart,p1))");
+    applyEqualitySymmetry(world, euclideanAxioms.hidden_assumptions.equalitySymmetric, eqAp1_Bp1);
+    const eqBp1_Ap1 = mustFind(world, fact("equal", [sBp1, sAp1]), "equal(segment(segmentStart,p1), segment(givenPoint,p1))");
 
     // Phase 3: extend p1->segmentStart to intersect circle(segmentStart, segmentEnd), producing p2.
     const segBC = mustFind(world, fact("segment", [atom(segmentStart), atom(segmentEnd)]), "segment(segmentStart, segmentEnd)");
@@ -94,6 +115,10 @@ export const buildProp2World = ({
         { pattern: euclideanAxioms.text.postulate3.terms[0]!, with: segBC },
     ]);
     const circleBC = mustFind(world, fact("circle", [atom(segmentStart), atom(segmentEnd)]), "circle(segmentStart, segmentEnd)");
+    const segBP1 = mustFind(world, fact("segment", [atom(segmentStart), atom(p1)]), "segment(segmentStart, p1)");
+    apply(world, euclideanAxioms.hidden_assumptions.segmentSymmetry, [
+        { pattern: euclideanAxioms.hidden_assumptions.segmentSymmetry.terms[0]!, with: segBP1 },
+    ]);
     const segP1B = mustFind(world, fact("segment", [atom(p1), atom(segmentStart)]), "segment(p1, segmentStart)");
     apply(world, lineCircleIntersectionAtEnd, [
         { pattern: lineCircleIntersectionAtEnd.terms[0]!, with: segP1B },
@@ -105,7 +130,7 @@ export const buildProp2World = ({
     const p2 = assertSingle(
         alongP1B.filter(symbol =>
             onBC.has(symbol) &&
-            ![p1, givenPoint, segmentStart, segmentEnd, ...reservedPoints].includes(symbol)
+            ![p1, givenPoint, segmentStart, segmentEnd].includes(symbol)
         ),
         "p2 candidates"
     );
@@ -118,6 +143,10 @@ export const buildProp2World = ({
         { pattern: euclideanAxioms.text.postulate3.terms[0]!, with: segP1P2 },
     ]);
     const circleP1P2 = mustFind(world, fact("circle", [atom(p1), atom(p2)]), "circle(p1, p2)");
+    const segAP1 = mustFind(world, fact("segment", [atom(givenPoint), atom(p1)]), "segment(givenPoint, p1)");
+    apply(world, euclideanAxioms.hidden_assumptions.segmentSymmetry, [
+        { pattern: euclideanAxioms.hidden_assumptions.segmentSymmetry.terms[0]!, with: segAP1 },
+    ]);
     const segP1A = mustFind(world, fact("segment", [atom(p1), atom(givenPoint)]), "segment(p1, givenPoint)");
     apply(world, lineCircleIntersectionAtStart, [
         { pattern: lineCircleIntersectionAtStart.terms[0]!, with: segP1A },
@@ -129,7 +158,7 @@ export const buildProp2World = ({
     const p3 = assertSingle(
         alongP1A.filter(symbol =>
             onP1P2.has(symbol) &&
-            ![p1, p2, givenPoint, segmentStart, segmentEnd, ...reservedPoints].includes(symbol)
+            ![p1, p2, givenPoint, segmentStart, segmentEnd].includes(symbol)
         ),
         "p3 candidates"
     );
@@ -138,10 +167,6 @@ export const buildProp2World = ({
 
     // Phase 5: algebraic/equality proof core for Prop 2.
     // Goal shape: equal(segment(segmentStart, segmentEnd), segment(givenPoint, p3))
-    const sAB = fact("segment", [atom(givenPoint), atom(segmentStart)]);
-    const sBA = fact("segment", [atom(segmentStart), atom(givenPoint)]);
-    const sAp1 = fact("segment", [atom(givenPoint), atom(p1)]);
-    const sBp1 = fact("segment", [atom(segmentStart), atom(p1)]);
     const sBCFact = fact("segment", [atom(segmentStart), atom(segmentEnd)]);
     const sBp2 = fact("segment", [atom(segmentStart), atom(p2)]);
     const sP1P2 = fact("segment", [atom(p1), atom(p2)]);
@@ -163,41 +188,6 @@ export const buildProp2World = ({
         { pattern: euclideanAxioms.hidden_assumptions.radiiEqual.terms[0]!, with: onP3P1P2 },
     ]);
     const eqP1P2_P1P3 = mustFind(world, fact("equal", [sP1P2, sP1P3]), "equal(segment(p1,p2), segment(p1,p3))");
-
-    const segP1AProof = mustFind(world, fact("segment", [atom(p1), atom(givenPoint)]), "segment(p1, givenPoint)");
-    const segP1BProof = mustFind(world, fact("segment", [atom(p1), atom(segmentStart)]), "segment(p1, segmentStart)");
-    apply(world, euclideanAxioms.hidden_assumptions.segmentSymmetry, [
-        { pattern: euclideanAxioms.hidden_assumptions.segmentSymmetry.terms[0]!, with: segP1AProof },
-    ]);
-    apply(world, euclideanAxioms.hidden_assumptions.segmentSymmetry, [
-        { pattern: euclideanAxioms.hidden_assumptions.segmentSymmetry.terms[0]!, with: segP1BProof },
-    ]);
-
-    const onP1AB = mustFind(world, fact("on_circle", [atom(p1), atom(givenPoint), atom(segmentStart)]), "on_circle(p1, givenPoint, segmentStart)");
-    const onP1BA = mustFind(world, fact("on_circle", [atom(p1), atom(segmentStart), atom(givenPoint)]), "on_circle(p1, segmentStart, givenPoint)");
-    apply(world, euclideanAxioms.hidden_assumptions.radiiEqual, [
-        { pattern: euclideanAxioms.hidden_assumptions.radiiEqual.terms[0]!, with: onP1AB },
-    ]);
-    apply(world, euclideanAxioms.hidden_assumptions.radiiEqual, [
-        { pattern: euclideanAxioms.hidden_assumptions.radiiEqual.terms[0]!, with: onP1BA },
-    ]);
-
-    const eqAB_Ap1 = mustFind(world, fact("equal", [sAB, sAp1]), "equal(segment(givenPoint,segmentStart), segment(givenPoint,p1))");
-    const eqBA_Bp1 = mustFind(world, fact("equal", [sBA, sBp1]), "equal(segment(segmentStart,givenPoint), segment(segmentStart,p1))");
-    const segABProof = mustFind(world, sAB, "segment(givenPoint, segmentStart)");
-    apply(world, euclideanAxioms.hidden_assumptions.segmentSymmetry, [
-        { pattern: euclideanAxioms.hidden_assumptions.segmentSymmetry.terms[0]!, with: segABProof },
-    ]);
-    const eqAB_BA = mustFind(world, fact("equal", [sAB, sBA]), "equal(segment(givenPoint,segmentStart), segment(segmentStart,givenPoint))");
-
-    applyEqualitySymmetry(world, euclideanAxioms.hidden_assumptions.equalitySymmetric, eqAB_Ap1);
-    const eqAp1_AB = mustFind(world, fact("equal", [sAp1, sAB]), "equal(segment(givenPoint,p1), segment(givenPoint,segmentStart))");
-    applyTransitivity(world, euclideanAxioms.text.commonNotion1, eqAp1_AB, eqAB_BA);
-    const eqAp1_BA = mustFind(world, fact("equal", [sAp1, sBA]), "equal(segment(givenPoint,p1), segment(segmentStart,givenPoint))");
-    applyTransitivity(world, euclideanAxioms.text.commonNotion1, eqAp1_BA, eqBA_Bp1);
-    const eqAp1_Bp1 = mustFind(world, fact("equal", [sAp1, sBp1]), "equal(segment(givenPoint,p1), segment(segmentStart,p1))");
-    applyEqualitySymmetry(world, euclideanAxioms.hidden_assumptions.equalitySymmetric, eqAp1_Bp1);
-    const eqBp1_Ap1 = mustFind(world, fact("equal", [sBp1, sAp1]), "equal(segment(segmentStart,p1), segment(givenPoint,p1))");
 
     const segP1P2Proof = mustFind(world, sP1P2, "segment(p1,p2)");
     const segP1P3Proof = mustFind(world, sP1P3, "segment(p1,p3)");
@@ -266,15 +256,7 @@ export const buildProp2World = ({
 
     applyTransitivity(world, euclideanAxioms.text.commonNotion1, eqBC_Bp2, eqBp2_Ap3);
     const finalEquality = mustFind(world, fact("equal", [sBCFact, sAp3]), "equal(segment(segmentStart,segmentEnd), segment(givenPoint,p3))");
+    assert.equal(world.has(finalEquality), true, "buildProp2TheoremWorld: final equality should exist in world");
 
-    // Sanity check: builder must return a world that already contains the proved proposition.
-    assert.equal(world.has(finalEquality), true, "buildProp2World: final equality should exist in world");
-
-    return {
-        world,
-        p1,
-        p2,
-        endpoint: p3,
-        equality: finalEquality,
-    };
+    return world;
 };
