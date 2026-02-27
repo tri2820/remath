@@ -1,115 +1,98 @@
-# Euclid Proposition 2: Logical Proof Breakdown
+# Euclid Proposition 2: Rule-Accurate Strategy
 
-This is the step-by-step application of the formal rules to prove the proposition: _"To place at a given point (A) a straight line equal to a given straight line (BC)."_
+Goal: from given `point(A)`, `point(B)`, `point(C)`, construct a segment starting at `A` that is equal to `segment(B, C)`.
 
----
+This plan is written for the current engine and rule set in `euclid/index.ts`.
 
-## Part 1: The Construction (Drawing the Figure)
+## Naming Convention (Important)
 
-### 1. Construct the Equilateral Triangle (DAB)
+Do not hard-code names like `D/G/L` in implementation.
 
-We first establish a rigid bridge between the starting point A and the reference point B using the logic from Proposition 1.
+Use symbolic placeholders:
+1. `p1` = first introduced point (triangle apex on AB)
+2. `p2` = second introduced point (extension from `p1 -> B`)
+3. `p3` = third introduced point (extension from `p1 -> A`)
 
-- **Rule Applied:** `postulate1`
-  - **Action:** Connect Point A and Point B.
-  - **Result:** `segment(A, B)`.
-- **Rule Applied:** `postulate3`
-  - **Action:** Create `circle(A, B)`.
-- **Rule Applied:** `segmentSymmetry`
-  - **Action:** Convert `segment(A, B)` to `segment(B, A)`.
-- **Rule Applied:** `postulate3`
-  - **Action:** Create `circle(B, A)`.
-- **Rule Applied:** `circleIntersection`
-  - **Action:** Intersect the two circles.
-  - **Result:** A new point **D** is created.
-- **Rule Applied:** `postulate1` (Twice)
-  - **Action:** Connect D to A and D to B.
-  - **Result:** We now have the "top" of the diagram, Triangle DAB.
+In a world that starts with atoms `A, B, C`, these usually become `D, E, F` respectively.
 
-### 2. Extend the Line DB
+## Part 1: Construction
 
-We need to project the length of the given segment BC onto the line extending from D through B.
+### 1. Setup Required Segments
 
-- **Rule Applied:** `postulate3`
-  - **Action:** Create a circle centered at B with radius BC (`circle(B, C)`).
-- **Rule Applied:** `lineCircleIntersection`
-  - **Action:** Extend `segment(D, B)` until it hits `circle(B, C)`.
-  - **Result:**
-    1.  A new point **G** is created.
-    2.  A collinearity fact is produced: `collinear(D, B, G)`.
-    3.  An on-circle fact is produced: `on_circle(G, B, C)`.
-- **Manual Fix:** `postulate1`
-  - **Action:** The intersection rule created point G, but didn't draw the line segment physically. We must manually connect B to G.
-  - **Result:** `segment(B, G)`.
+1. Given `point(A)`, `point(B)`, `point(C)`.
+2. Apply `postulate1` on `(A, B)` to get `segment(A, B)`.
+3. Apply `postulate1` on `(B, C)` to get `segment(B, C)`.  
+   This step is required before `postulate3` can create `circle(B, C)`.
 
-### 3. Extend the Line DA
+### 2. Build Equilateral Triangle on AB
 
-We now project the total length from the previous step onto the other side of the triangle.
+1. Apply `postulate3` on `segment(A, B)` -> `circle(A, B)`.
+2. Apply `segmentSymmetry` on `segment(A, B)` -> `segment(B, A)`.
+3. Apply `postulate3` on `segment(B, A)` -> `circle(B, A)`.
+4. Apply `circleIntersection` on `circle(A, B)` and `circle(B, A)` -> introduce `p1`, plus:
+   - `point(p1)`
+   - `on_circle(p1, A, B)`
+   - `on_circle(p1, B, A)`
+5. Apply `postulate1` on `(p1, A)` and `(p1, B)` to get `segment(p1, A)` and `segment(p1, B)`.
 
-- **Manual Fix:** `postulate1`
-  - **Action:** Connect D to G.
-  - **Reason:** We need `segment(D, G)` to exist to use it as a radius.
-- **Rule Applied:** `postulate3`
-  - **Action:** Create a large circle centered at D with radius DG (`circle(D, G)`).
-- **Rule Applied:** `lineCircleIntersection`
-  - **Action:** Extend `segment(D, A)` until it hits `circle(D, G)`.
-  - **Result:**
-    1.  A new point **L** is created.
-    2.  A collinearity fact is produced: `collinear(D, A, L)`.
-    3.  An on-circle fact is produced: `on_circle(L, D, G)`.
-- **Manual Fix:** `postulate1` (Twice)
-  - **Action:** Connect A to L, and D to L.
-  - **Result:** We now have `segment(A, L)` (the goal line) and `segment(D, L)` (the big radius).
+### 3. Extend p1B Using Given Length BC
 
----
+1. Apply `postulate3` on `segment(B, C)` -> `circle(B, C)`.
+2. Apply `lineCircleIntersection` with `segment(p1, B)` and `circle(B, C)` -> introduce `p2`, plus:
+   - `collinear(p1, B, p2)`
+   - `on_circle(p2, B, C)`
+3. Apply `postulate1` on `(B, p2)` so `radiiEqual` can be used on `on_circle(p2, B, C)`.
+4. Apply `postulate1` on `(p1, p2)` to prepare the larger radius used next.
 
-## Part 2: The Proof (Logic & Algebra)
+### 4. Extend p1A to Create Target Endpoint
 
-Now that the geometry exists, we use the logic rules to prove that $AL = BC$.
+1. Apply `postulate3` on `segment(p1, p2)` -> `circle(p1, p2)`.
+2. Apply `lineCircleIntersection` with `segment(p1, A)` and `circle(p1, p2)` -> introduce `p3`, plus:
+   - `collinear(p1, A, p3)`
+   - `on_circle(p3, p1, p2)`
+3. Apply `postulate1` on `(A, p3)` and `(p1, p3)`.
+   Target segment is now `segment(A, p3)`.
 
-### 1. Establish Radii Equalities
+## Part 2: Proof of Equality
 
-- **Rule Applied:** `radiiEqual` on `circle(B, C)`
-  - **Input:** `on_circle(G, B, C)`
-  - **Result:** $BG = BC$.
-- **Rule Applied:** `radiiEqual` on `circle(D, G)`
-  - **Input:** `on_circle(L, D, G)`
-  - **Result:** $DL = DG$.
+### 1. Radius Equalities
 
-### 2. Prepare for Subtraction (The Symmetry Step)
+1. From `on_circle(p2, B, C)` and `segment(B, p2)`, apply `radiiEqual`:
+   - `equal(segment(B, C), segment(B, p2))`
+2. From `on_circle(p3, p1, p2)` and `segment(p1, p3)`, apply `radiiEqual`:
+   - `equal(segment(p1, p2), segment(p1, p3))`
 
-We need to calculate the remainder of the segments. The rule `linearSegmentSubtraction` works on the logic:
+### 2. Express Lower Parts as Differences
 
-> _"The First Part = The Whole - The Last Part"_
+`linearSegmentSubtraction` expects `collinear(a, c, b)` and returns:
+`equal(segment(a, c), diff(segment(a, b), segment(c, b)))`.
 
-However, our lines are defined as $D \to B \to G$ and $D \to A \to L$. If we apply subtraction directly, it calculates the top part ($DB$), not the bottom part ($BG$). We must flip the lines.
+1. Apply `collinearSymmetry`:
+   - `collinear(p1, B, p2)` -> `collinear(p2, B, p1)`
+   - `collinear(p1, A, p3)` -> `collinear(p3, A, p1)`
+2. Apply `linearSegmentSubtraction`:
+   - `collinear(p2, B, p1)` -> `equal(segment(p2, B), diff(segment(p2, p1), segment(B, p1)))`
+   - `collinear(p3, A, p1)` -> `equal(segment(p3, A), diff(segment(p3, p1), segment(A, p1)))`
 
-- **Rule Applied:** `collinearSymmetry`
-  - **Input:** `collinear(D, B, G)`
-  - **Result:** `collinear(G, B, D)`
-  - **Meaning:** The line is now viewed as starting at G, going through B, ending at D.
-- **Rule Applied:** `collinearSymmetry`
-  - **Input:** `collinear(D, A, L)`
-  - **Result:** `collinear(L, A, D)`
+### 3. Equal Whole Minus Equal Part
 
-### 3. Execute Subtraction
+1. Obtain `equal(segment(B, p1), segment(A, p1))` from the equilateral-triangle construction facts:
+   - derive `AB = Ap1` and `BA = Bp1` via `radiiEqual`
+   - bridge orientations with `segmentSymmetry`
+   - combine with `commonNotion1` and `equalitySymmetric`
+2. From Step 1 above: `equal(segment(p1, p2), segment(p1, p3))`.
+   Use `segmentSymmetry` as needed to align orientations to `segment(p2, p1)` and `segment(p3, p1)`.
+3. Apply `commonNotion3` to conclude:
+   - `equal(diff(segment(p2, p1), segment(B, p1)), diff(segment(p3, p1), segment(A, p1)))`
 
-- **Rule Applied:** `linearSegmentSubtraction`
-  - **Input:** `collinear(G, B, D)`
-  - **Logic:** $Start(G)Mid(B) = Start(G)End(D) - Mid(B)End(D)$
-  - **Result:** $GB = GD - BD$.
-- **Rule Applied:** `linearSegmentSubtraction`
-  - **Input:** `collinear(L, A, D)`
-  - **Logic:** $Start(L)Mid(A) = Start(L)End(D) - Mid(A)End(D)$
-  - **Result:** $LA = LD - AD$.
+### 4. Replace Diffs by Segments and Reach the Goal
 
-### 4. Final Deduction
+1. Use `commonNotion1` + `equalitySymmetric` to combine:
+   - subtraction equalities from Part 2.2
+   - diff equality from Part 2.3
+   This yields `equal(segment(p2, B), segment(p3, A))`.
+2. Reorient with `segmentSymmetry` to get `equal(segment(B, p2), segment(A, p3))`.
+3. Combine with radius equality `equal(segment(B, C), segment(B, p2))` and transitivity (`commonNotion1`) to get:
+   - `equal(segment(B, C), segment(A, p3))`
 
-- **Rule Applied:** `commonNotion3` ("If equals be subtracted from equals, the remainders are equal")
-  - **Premise 1:** $GD = LD$ (From Step 1, Radii of the big circle).
-  - **Premise 2:** $BD = AD$ (Sides of the equilateral triangle DAB).
-  - **Calculation:** $(GD - BD)$ must equal $(LD - AD)$.
-  - **Conclusion:** Therefore, $GB = LA$.
-
-Since we established in Step 1 that $GB$ (or $BG$) is equal to $BC$:
-**The line segment $AL$ (or $LA$) is equal to $BC$.**
+Therefore, the segment from the given point `A` to the constructed point `p3` is equal to the given segment `BC`.
