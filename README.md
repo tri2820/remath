@@ -2,9 +2,9 @@
 
 - [Intro blog](https://bulletplayer.substack.com/p/why-im-building-a-graphical-simple)
 
-This project aims to build an easy-to-use, graphical proof assistant that even kids can understand. The core language is simple, defined in [this file](/rewriting.ts).
+This project aims to build an easy-to-use, graphical proof assistant that even kids can understand. The core language is simple, defined in [rewriting.ts](./rewriting.ts).
 
-For a feel of how the underlying machinery works, see [Euclid axioms](/euclid/index.ts) and [Proof for Euclid's 1st proposition](/euclid/prop1.test.ts).
+For a feel of how the underlying machinery works, see [euclid/index.ts](./euclid/index.ts) and [euclid/prop1.test.ts](./euclid/prop1.test.ts).
 
 My hope is to help kids study a variety of math domains, while enforcing no complex theory beyond a basic logical framework—giving ideas shape.
 
@@ -18,6 +18,16 @@ To run tests:
 
 ```bash
 bun test
+```
+
+Quick start:
+
+```bash
+# run a single Euclid proof test
+bun test euclid/prop1.test.ts
+
+# inspect the core rewriting language
+sed -n '1,200p' rewriting.ts
 ```
 
 ---
@@ -92,7 +102,7 @@ These concepts are relevant for developers of this language. For users, they sho
     point(variable(a))
     rule(
         point(variable(b))
-        segment(point(variable(a)) point(variable(b)))
+        segment(point(variable(a)), point(variable(b)))
         )
     )
   ```
