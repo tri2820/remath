@@ -7,7 +7,7 @@ import { apply, drawSegment, findSharedPointOnCircles, mustFind } from "./testUt
 // Euclid's non-degeneracy gap is curriculum, not a defect. These tests pin it down from
 // both sides: the unguarded axioms derive a point at distance zero and never decide
 // whether it is A, and a geometric guard on circle intersection is what a correct axiom
-// needs. See NOTE.md, "Kept on purpose".
+// needs. See docs/curriculum.md, "The non-degeneracy gap".
 //
 // The rule of the lesson: a different NAME never means a different POINT.
 // `introduce` hands out an unused symbol, which is a naming convention, not a claim of

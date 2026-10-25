@@ -181,7 +181,7 @@ export const commonNotion3 = rule(
 // These are the curriculum, not our bugs. Euclid's gaps are the thing being taught,
 // so do not quietly guard them away: a proposition that leans on I.1's unstated circle
 // intersection should be visibly doing so. A fresh name is never evidence of a new point
-// (see NOTE.md, "Names are not identity"); `euclid/degeneracy.test.ts` pins the sharpest
+// (see docs/curriculum.md, "Names are not identity"); `euclid/degeneracy.test.ts` pins the sharpest
 // consequence, a point at distance zero whose identity stays undecided, and the geometric
 // guard (`distinct` centers) that a correct intersection axiom would need.
 

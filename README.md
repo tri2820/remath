@@ -8,6 +8,13 @@ For a feel of how the underlying machinery works, see [euclid/index.ts](./euclid
 
 My hope is to help kids study a variety of math domains, while enforcing no complex theory beyond a basic logical framework—giving ideas shape.
 
+## Docs
+
+- [docs/language.md](./docs/language.md): the intended surface syntax.
+- [docs/metatheory.md](./docs/metatheory.md): what the engine guarantees, the two invariants it rests on, and what it deliberately does not do.
+- [docs/curriculum.md](./docs/curriculum.md): the Euclid gaps kept on purpose, why names are not identity, and the copy the interface should use.
+- [AGENTS.md](./AGENTS.md): conventions for coding agents working in this repo.
+
 To install dependencies:
 
 ```bash
@@ -123,6 +130,6 @@ These concepts are relevant for developers of this language. For users, they sho
 
   - A world contains many facts.
   - Before `.locked()`, arbitrary facts can be added.
-  - After `.locked()`, only facts derived from facts already existing in the world can be added.
+  - After `.locked()`, the world is a set in seal mode: `add` throws and `substitute` is the only way facts enter. The world keeps no record of which application produced which fact.
   - Facts from one world are not directly portable to another—they must be generalized first (this can be done automatically).
     For example: In world 1, `eq(point(A), point(B))` may hold, but it doesn’t automatically hold in world 2.

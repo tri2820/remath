@@ -248,7 +248,7 @@ export class World {
         const res = this.substituteVar(rule, inputMap);
 
         // The world is a set, so a rule application writes its facts in. Nothing records
-        // which application produced which fact, by design (NOTE.md, "No history").
+        // which application produced which fact, by design (docs/metatheory.md).
         if (res.data) {
             for (const fact of res.data) {
                 this.insert(fact);

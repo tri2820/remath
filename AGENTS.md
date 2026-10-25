@@ -104,3 +104,16 @@ bun --hot ./index.ts
 ```
 
 For more information, read the Bun API docs in `node_modules/bun-types/docs/**.md`.
+
+## This project
+
+- `bun test` for everything; `bun test euclid/prop1.test.ts` for a single proof.
+- Docs live in `docs/`: `language.md` (surface syntax), `metatheory.md` (what the engine
+  guarantees and what it deliberately does not), `curriculum.md` (the Euclid gaps kept on
+  purpose, the naming principle, the interface copy). `README.md` is the tour.
+- Never infer distinctness from an atom's name. Identity is a stated fact (`coincides`,
+  then `equal`). A fresh name is a naming convention.
+- Do not add guards that quietly close Euclid's gaps. They are the product.
+- Two invariants hold the soundness argument, keep them when editing: every conclusion
+  variable is bound along the currying chain, and Skolem witnesses are fresh and pairwise
+  distinct per application.
