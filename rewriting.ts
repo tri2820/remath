@@ -262,7 +262,12 @@ export function match(pattern: Term, bounded: Term): Result<{ sub: Sub }> {
 // Ensures that a Rule template is well-formed:
 // 1. Is actually a "rule" op
 // 2. Has at least 2 terms (LHS, RHS...)
-// 3. All variables in RHS terms appear in LHS
+// 3. Every variable that reaches a conclusion is bound by a condition on the way there.
+//
+// A rule is a chain of clauses: rule(LHS, RHS...) where any RHS may itself be a rule,
+// meaning "and then this further condition". So a variable used by an *inner* rule's
+// conclusion may legitimately be bound by that inner rule's own LHS. Reading only the
+// outermost LHS (the naive rule) wrongly rejects every curried axiom in euclid/index.ts.
 export function validate_rule(ruleTerm: Rule): Result<{ vars: Set<string> }> {
     if (ruleTerm.op.symbol !== "rule") {
         return { error: { code: "NOT_A_RULE", message: "Op must be 'rule'" } };
@@ -272,31 +277,53 @@ export function validate_rule(ruleTerm: Rule): Result<{ vars: Set<string> }> {
         return { error: { code: "INVALID_RULE_ARITY", message: "Rule must have at least LHS and one RHS term" } };
     }
 
-    const lhs = ruleTerm.terms[0]!;
-    const rhsList = ruleTerm.terms.slice(1); // Treat everything else as RHS consequences
-
-    const lhsVars = new Set<string>();
-    const rhsVars = new Set<string>();
+    const seenVars = new Set<string>();
 
     const collect = (t: Term, set: Set<string>) => {
         if (t.type === 'var') set.add(t.symbol);
         if (t.type === "fact") t.terms.forEach(child => collect(child, set));
     };
 
-    collect(lhs, lhsVars);
-    // Collect variables from ALL RHS terms
-    rhsList.forEach(t => collect(t, rhsVars));
-
-    for (const v of rhsVars) {
-        if (!lhsVars.has(v)) {
-            return {
-                error: {
-                    code: "NEW_VARIABLE_IN_RHS",
-                    message: `Variable '${v}' appears in RHS but not LHS`
-                }
-            };
+    // scope holds the variables already bound by enclosing LHS terms.
+    const checkClause = (clause: Fact, scope: Set<string>): Result<{}> => {
+        const lhs = clause.terms[0];
+        if (!lhs) {
+            return { error: { code: "INVALID_RULE_ARITY", message: "Missing LHS" } };
         }
-    }
 
-    return { data: { vars: new Set([...lhsVars, ...rhsVars]) } };
+        const bound = new Set(scope);
+        collect(lhs, bound);
+        collect(lhs, seenVars);
+
+        for (const rhs of clause.terms.slice(1)) {
+            collect(rhs, seenVars);
+
+            // A nested rule binds its own LHS variables inside itself.
+            if (rhs.type === "fact" && rhs.op.symbol === "rule") {
+                const nested = checkClause(rhs, bound);
+                if (nested.error) return nested;
+                continue;
+            }
+
+            const rhsVars = new Set<string>();
+            collect(rhs, rhsVars);
+            for (const v of rhsVars) {
+                if (!bound.has(v)) {
+                    return {
+                        error: {
+                            code: "NEW_VARIABLE_IN_RHS",
+                            message: `Variable '${v}' appears in RHS but not LHS`
+                        }
+                    };
+                }
+            }
+        }
+
+        return { data: {} };
+    };
+
+    const result = checkClause(ruleTerm, new Set());
+    if (result.error) return { error: result.error };
+
+    return { data: { vars: seenVars } };
 }

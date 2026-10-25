@@ -1,4 +1,4 @@
-import { all_atoms, all_atoms_or_introductions, bind_introductions, bind_vars, match, equal_term, type Atom, type Introduction, type Result, type Rule, type Sub, type Term, somewhere_equal, make_rule, variable, introduction } from "./rewriting";
+import { all_atoms, all_atoms_or_introductions, bind_introductions, bind_vars, match, equal_term, type Atom, type Introduction, type Result, type Rule, type Sub, type Term, somewhere_equal, make_rule, variable, introduction, validate_rule } from "./rewriting";
 
 
 type Substitution = {
@@ -15,11 +15,14 @@ export class World {
     // Initialize the index map
     private __locked = false;
     private facts_at_lock: Term[] = [];
-    private derived_facts: Term[] = [];
 
     // Funny how this reminds me of Laws of Form.
     // In that the world would not be "locked", I think. 
     // There would be some other sort of mechanism to evolve the world to adapt automatically to facts that are born from paradoxes.
+
+    // Sealing, not provenance. After this call the world accepts no hand-written facts;
+    // substitute() is the only mutator. The pre-lock set is kept because it is the LHS of
+    // the theorem that asRule() exports: a boundary, not a log.
     lock() {
         if (this.__locked) return;
         this.facts_at_lock = [...this.facts];
@@ -31,12 +34,27 @@ export class World {
     }
 
     add(fact: Term) {
-        if (!this.has(fact)) {
-            if (this.locked) {
-                if (!this.derived_facts.some(f => equal_term(f, fact))) {
-                    throw new Error("This world is locked. This fact is not created by this world. Where does it come from?");
-                }
+        if (this.__locked) {
+            throw new Error("This world is sealed. Facts enter only through substitute().");
+        }
+        this.insert(fact);
+    }
+
+    // Insertion shared by hand-written facts (before sealing) and rule application
+    // (after sealing). The world keeps no record of which is which: fact is fact.
+    private insert(fact: Term) {
+        // A rule is a claim scheme: if it can bind a conclusion variable from nowhere,
+        // it can inject free variables into a world that is supposed to hold ground facts.
+        if (fact.type === "fact" && fact.op.symbol === "rule") {
+            const validation = validate_rule(fact);
+            if (validation.error) {
+                throw new Error(
+                    `Cannot add malformed rule (${validation.error.code}): ${validation.error.message ?? ""}`
+                );
             }
+        }
+
+        if (!this.has(fact)) {
             this.facts.push(fact);
         }
     }
@@ -143,7 +161,11 @@ export class World {
 
         // TODO: only upon new facts added to the World do we actually increase the counter
         // But for now, there is no harm in increasing it here also
-        const bounded_rule = all_atoms_or_introductions(res.data.result) ? bind_introductions(res.data.result, this.introduce.bind(this)) : res.data.result;
+        // Each application owns a fresh-symbol allocator, so two introductions inside
+        // the same rule application (e.g. two circle intersections) never collapse
+        // into one witness. bind_introductions still keeps *the same* intro symbol
+        // mapped to the same atom within the application.
+        const bounded_rule = all_atoms_or_introductions(res.data.result) ? bind_introductions(res.data.result, this.introduceAllocator()) : res.data.result;
         new_facts.push(bounded_rule);
 
         const decompose_res = this.decompose([bounded_rule]);
@@ -225,10 +247,14 @@ export class World {
         // console.log("inputMap:", JSON.stringify(inputMap, null, 2));
         const res = this.substituteVar(rule, inputMap);
 
-        // If world is locked, we track created facts
-        if (this.locked) {
-            if (res.data) this.derived_facts = World.deduplicate([...this.derived_facts, ...res.data]);
+        // The world is a set, so a rule application writes its facts in. Nothing records
+        // which application produced which fact, by design (NOTE.md, "No history").
+        if (res.data) {
+            for (const fact of res.data) {
+                this.insert(fact);
+            }
         }
+
         return res;
     }
 
@@ -291,18 +317,28 @@ export class World {
     }
 
     // Arrow function to capture 'this' context automatically
-    introduce = (intro: Introduction): Atom => {
-        const atomSymbols = this.getAtomSymbols();
+    // Allocates atoms for introductions within one rule application.
+    // The used-symbol set is local: seeding it only from this.facts would hand out the
+    // same atom to two different introductions in the same application (they are not in
+    // facts yet), which silently identifies two witnesses that must be distinct.
+    private introduceAllocator(): (intro: Introduction) => Atom {
+        const used = this.getAtomSymbols();
 
-        for (const symbol of World.generateSymbols()) {
-            if (!atomSymbols.has(symbol)) {
-                return { type: "atom", symbol };
+        return (_intro: Introduction): Atom => {
+            for (const symbol of World.generateSymbols()) {
+                if (!used.has(symbol)) {
+                    used.add(symbol);
+                    return { type: "atom", symbol };
+                }
             }
-        }
 
-        // This should never be reached as the generator is infinite
-        throw new Error("No available symbols");
+            // This should never be reached as the generator is infinite
+            throw new Error("No available symbols");
+        };
     }
+
+    // Single-shot allocation, kept for direct use.
+    introduce = (intro: Introduction): Atom => this.introduceAllocator()(intro);
 
     private static curryRule(lhsTerms: Term[], rhsTerms: Term[]): Rule {
         let out = make_rule(lhsTerms[lhsTerms.length - 1]!, rhsTerms[0]!, ...rhsTerms.slice(1));

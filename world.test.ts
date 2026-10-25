@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { atom, make_rule, fact, variable, rule, introduction } from "./rewriting";
+import { atom, make_rule, fact, variable, rule, introduction, equal_term } from "./rewriting";
 import { World } from "./world";
 import { buildProp1TheoremWorld } from "./euclid/prop1World";
 import { euclideanAxioms } from "./euclid";
@@ -263,7 +263,6 @@ describe("Rewriting Engine", () => {
         expect(res.data.length).toEqual(2);
         expect(res.data[0]).toEqual(make_rule(make_rule(pA, pB), make_rule(make_rule(pB, z_0), make_rule(pA, z_0))));
         expect(res.data[1]).toEqual(make_rule(make_rule(pB, z_0), make_rule(pA, z_0)));
-        w.addAll(res.data!);
 
         // Supposed only later on that we have 
         w.add(make_rule(pB, pC));
@@ -343,16 +342,15 @@ describe("Rewriting Engine", () => {
         expect(z_0).toEqual({ type: "var", symbol: "z" });
 
         const w = new World();
-        // This template means: x -> (y -> z)
-        const temp = make_rule(x_0, make_rule(y_0, z_0))
+        // This template means: x -> (y -> pair(x, y))
+        const temp = make_rule(x_0, make_rule(y_0, fact("pair", [x_0, y_0])))
 
         // Suppose we have a fact satisfying that template
-        const instance = make_rule(pA, make_rule(pB, pC))
+        const instance = make_rule(pA, make_rule(pB, fact("pair", [pA, pB])))
         w.add(instance);
 
-        // However, we want to satisfy this rule
-        // x -> y
-        const rule = make_rule(x_0, y_0)
+        // However, we want to satisfy this rule: x -> pair(x, x)
+        const rule = make_rule(x_0, fact("pair", [x_0, x_0]))
         w.add(rule);
 
 
@@ -476,20 +474,20 @@ describe("Rewriting Engine", () => {
     });
 
 
-    it("Cannot add arbitrary facts after the world is locked", () => {
+    it("Cannot add hand-written facts after the world is sealed", () => {
         const w = new World();
         w.add(fact("point", [atom("A")]));
         w.lock();
 
         expect(() => {
             w.add(fact("point", [atom("B")]));
-        }).toThrowError("This world is locked. This fact is not created by this world. Where does it come from?");
+        }).toThrowError("This world is sealed. Facts enter only through substitute().");
     })
 
-    it("Can add facts that are derived, after the world is locked", () => {
+    it("Sealed world: substitute writes facts in, hand adds are rejected", () => {
         const w = new World();
         w.add(fact("point", [atom("A")]));
-        // x -> y
+        // point(x) -> point(!y)
         const rule = make_rule(fact("point", [variable("x")]), fact("point", [introduction("y")]));
         w.add(rule);
         w.lock();
@@ -500,12 +498,21 @@ describe("Rewriting Engine", () => {
 
         if (res.error) throw new Error('Unexpected error')
         expect(res.data.length).toEqual(2);
-        expect(res.data[0]).toEqual(make_rule(fact("point", [atom("A")]), fact("point", [atom("B")])));
-        // HACK: We know the world's introduce function is deterministic
-        expect(res.data[1]).toEqual(fact("point", [atom("B")]));
 
-        w.addAll(res.data);
-        expect(w.has(fact("point", [atom("B")]))).toBe(true);
+        const instance = res.data[0]!;
+        const consequence = res.data[1]!;
+        if (instance.type !== "fact" || consequence.type !== "fact") {
+            throw new Error("Expected two facts");
+        }
+
+        // The consequence must be exactly the RHS of the instance it came from, and its
+        // witness must be a name other than A. Which name it is does not matter.
+        expect(equal_term(consequence, instance.terms[1]!)).toBe(true);
+        expect(equal_term(consequence.terms[0]!, atom("A"))).toBe(false);
+
+        // The world wrote the facts in itself, so no addAll is needed afterwards.
+        expect(w.has(consequence)).toBe(true);
+        expect(() => w.add(fact("point", [atom("Z")]))).toThrowError(/sealed/);
     })
 
     it("asRule requires a locked world", () => {
@@ -527,7 +534,6 @@ describe("Rewriting Engine", () => {
 
         const res = w.substitute(growthRule, []);
         if (res.error) throw new Error("Unexpected substitution error");
-        w.addAll(res.data);
 
         const exported = w.asRule();
         const expected = make_rule(
@@ -568,6 +574,44 @@ describe("Rewriting Engine", () => {
         }
 
         expect(next.terms[0]).toEqual(fact("point", [variable("v1")]));
+    })
+
+    it("Does not collapse two introductions inside one rule application", () => {
+        const w = new World();
+        w.add(fact("point", [atom("A")]));
+
+        const split = make_rule(
+            fact("seed", [variable("x")]),
+            fact("point", [introduction("p")]),
+            fact("point", [introduction("q")]),
+            fact("pair", [introduction("p"), introduction("q")])
+        );
+        w.add(split);
+        w.add(fact("seed", [atom("S")]));
+        w.lock();
+
+        const res = w.substitute(split, [
+            { pattern: fact("seed", [variable("x")]), with: fact("seed", [atom("S")]) }
+        ]);
+        if (res.error) throw new Error(`Unexpected error: ${JSON.stringify(res.error)}`);
+
+        const pair = w.facts.find(f => f.type === "fact" && f.op.symbol === "pair");
+        if (!pair || pair.type !== "fact") throw new Error("Expected a pair fact");
+
+        const [left, right] = pair.terms;
+        expect(left).toBeDefined();
+        expect(right).toBeDefined();
+        expect(equal_term(left!, right!)).toBe(false);
+        expect(equal_term(left!, fact("point", [atom("A")]))).toBe(false);
+    })
+
+    it("Rejects a rule whose conclusion variable is bound nowhere", () => {
+        const w = new World();
+        // LHS binds x only; y in the RHS can never be instantiated, so the rule
+        // would inject an open formula into a store of ground facts.
+        const malformed = make_rule(variable("x"), fact("q", [variable("y")]));
+
+        expect(() => w.add(malformed)).toThrowError(/NEW_VARIABLE_IN_RHS/);
     })
 
 })

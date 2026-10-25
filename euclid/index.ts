@@ -80,10 +80,14 @@ export const definition_Line = rule(
 // Definition 8: Plane Angle
 // "A plane angle is the inclination to one another of two lines..."
 // Logic: An angle exists only if the two segments forming it exist.
+// Conditions must be curried: a flat tail of facts is a conjunction of *conclusions*,
+// so the second line has to be a nested rule to bind `c`.
 export const definition_Angle = rule(
     fact("line", [variable("b"), variable("a")]),
-    fact("line", [variable("b"), variable("c")]),
-    fact("angle", [variable("a"), variable("b"), variable("c")])
+    rule(
+        fact("line", [variable("b"), variable("c")]),
+        fact("angle", [variable("a"), variable("b"), variable("c")])
+    )
     // Are we talking about small angles only?
 );
 
@@ -94,16 +98,20 @@ export const definition_RightAngle = rule(
     // 1. The Base: A straight line A-D-B
     fact("collinear", [variable("a"), variable("d"), variable("b")]),
     // 2. The Standing Line: DC
-    fact("segment", [variable("d"), variable("c")]),
-    // 3. The Condition: The neighbors are equal
-    fact("equal", [
-        fact("angle", [variable("a"), variable("d"), variable("c")]),
-        fact("angle", [variable("b"), variable("d"), variable("c")])
-    ]),
-    // Result: It is a right angle
-    fact("right", [
-        fact("angle", [variable("a"), variable("d"), variable("c")])
-    ])
+    rule(
+        fact("segment", [variable("d"), variable("c")]),
+        // 3. The Condition: The neighbors are equal
+        rule(
+            fact("equal", [
+                fact("angle", [variable("a"), variable("d"), variable("c")]),
+                fact("angle", [variable("b"), variable("d"), variable("c")])
+            ]),
+            // Result: It is a right angle
+            fact("right", [
+                fact("angle", [variable("a"), variable("d"), variable("c")])
+            ])
+        )
+    )
 );
 
 // =======================
@@ -170,6 +178,12 @@ export const commonNotion3 = rule(
 // ==========================================
 // 3. THE HIDDEN ASSUMPTIONS (The Flaws)
 // ==========================================
+// These are the curriculum, not our bugs. Euclid's gaps are the thing being taught,
+// so do not quietly guard them away: a proposition that leans on I.1's unstated circle
+// intersection should be visibly doing so. A fresh name is never evidence of a new point
+// (see NOTE.md, "Names are not identity"); `euclid/degeneracy.test.ts` pins the sharpest
+// consequence, a point at distance zero whose identity stays undecided, and the geometric
+// guard (`distinct` centers) that a correct intersection axiom would need.
 
 // HIDDEN RULE: Circle Intersection
 // Euclid assumes if two circles exist, they intersect at some point.
@@ -206,13 +220,16 @@ export const radiiEqual = rule(
 // HIDDEN RULE: Collinear implies Straight Angle
 // Euclid Prop 13 proves this, but it relies on an unstated axiom that 
 // straight lines measure as "two right angles".
+// Both right angles are inputs: they must be given, and Postulate 4 makes any two
+// of them equal. The earlier version required right(angle(a,b,c)) as well, which
+// asserted the straight angle is itself right, and left d,e,f unbound (a dead rule).
 export const collinearImpliesStraightAngle = rule(
     fact("collinear", [variable("a"), variable("b"), variable("c")]),
     make_rule(
         fact("angle", [variable("a"), variable("b"), variable("c")]),
         make_rule(
             fact("right", [
-                fact("angle", [variable("a"), variable("b"), variable("c")])
+                fact("angle", [variable("d"), variable("e"), variable("f")])
             ]),
             make_rule(
                 fact("right", [

@@ -289,6 +289,34 @@ describe("Rewriting Engine", () => {
             expect(res.error!.code).toBe("NEW_VARIABLE_IN_RHS");
         });
 
+        it("should accept a curried rule whose inner LHS binds the variable", () => {
+            // segment(A,B) -> (point(C) -> segment(B,C))
+            // C is bound by the inner LHS, not by the outer one.
+            const r = rule(
+                fact("segment", [variable("A"), variable("B")]),
+                rule(
+                    fact("point", [variable("C")]),
+                    fact("segment", [variable("B"), variable("C")])
+                )
+            );
+
+            const res = validate_rule(r);
+            expect(res.error).toBeUndefined();
+            expect(res.data!.vars.has("C")).toBeTrue();
+        });
+
+        it("should reject a variable bound by no LHS anywhere in the chain", () => {
+            // point(A) -> angle(B, A, C) : B and C are bound nowhere
+            const r = rule(
+                fact("point", [variable("A")]),
+                fact("angle", [variable("B"), variable("A"), variable("C")])
+            );
+
+            const res = validate_rule(r);
+            expect(res.error).toBeDefined();
+            expect(res.error!.code).toBe("NEW_VARIABLE_IN_RHS");
+        });
+
         it("should fail if op is not rule", () => {
             const notRule = fact("not_rule", []);
             // Force cast to Rule to test runtime check

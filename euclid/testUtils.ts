@@ -23,7 +23,7 @@ export const apply = (
     if (res.error) {
         throw new Error(`Substitution failed (${res.error.code}): ${JSON.stringify(res.error)}`);
     }
-    world.addAll(res.data);
+    // No addAll: the world writes the facts in itself, and the world is sealed by then.
     return res.data;
 };
 
